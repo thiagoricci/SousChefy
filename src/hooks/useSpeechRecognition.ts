@@ -43,6 +43,7 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
   const [manuallyStopped, setManuallyStopped] = useState(false);
   const isListeningRef = useRef(false);
   const manuallyStoppedRef = useRef(false);
+  const forceStoppedRef = useRef(false); // New ref to prevent any restart attempts
   const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const recognitionRef = useRef<any>(null);
@@ -67,13 +68,14 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       // Mobile-optimized audioend handler - only restart if explicitly needed
        recognition.addEventListener('audioend', () => {
          isListeningRef.current = false;
-         // Only restart if NOT manually stopped and still supposed to be listening
+         // Only restart if NOT manually stopped, NOT force stopped, and still supposed to be listening
          // Add additional check to prevent unwanted restarts on mobile
-         if (isListening && continuous && !manuallyStoppedRef.current) {
+         // IMPORTANT: Use isListeningRef.current instead of isListening (state) because state is asynchronous
+         if (isListeningRef.current && continuous && !manuallyStoppedRef.current && !forceStoppedRef.current) {
            // Small delay to prevent rapid restarts
            audioendTimeoutRef.current = setTimeout(() => {
-             // Triple check all conditions before restarting - ensure manuallyStopped is still false
-             if (isListening && !manuallyStoppedRef.current && recognitionRef.current && !manuallyStoppedRef.current) {
+             // Triple check all conditions before restarting - ensure manuallyStopped and forceStopped are still false
+             if (isListeningRef.current && !manuallyStoppedRef.current && !forceStoppedRef.current && recognitionRef.current) {
                try {
                  recognitionRef.current.start();
                  isListeningRef.current = true;
@@ -93,9 +95,9 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         }
         
         // Set new inactivity timeout - longer for mobile to prevent unwanted stops
-         if (timeout > 0 && isListening) {
+         if (timeout > 0 && isListeningRef.current) {
            inactivityTimeoutRef.current = setTimeout(() => {
-             if (isListening && recognitionRef.current && !manuallyStoppedRef.current) {
+             if (isListeningRef.current && recognitionRef.current && !manuallyStoppedRef.current) {
                try {
                  recognitionRef.current.abort();
                  setIsListening(false);
@@ -108,12 +110,12 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
          }
 
         // Set auto-stop timeout (longer for mobile to prevent unwanted stops)
-         if (isListening && !manuallyStoppedRef.current) {
+         if (isListeningRef.current && !manuallyStoppedRef.current) {
            if (autoStopTimeoutRef.current) {
              clearTimeout(autoStopTimeoutRef.current);
            }
            autoStopTimeoutRef.current = setTimeout(() => {
-             if (isListening && !manuallyStoppedRef.current && recognitionRef.current) {
+             if (isListeningRef.current && !manuallyStoppedRef.current && recognitionRef.current) {
                try {
                  // Use abort instead of stop for more forceful termination
                  recognitionRef.current.abort();
@@ -231,6 +233,7 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       isListeningRef.current = true;
       setManuallyStopped(false); // Reset manual stop flag when starting
       manuallyStoppedRef.current = false;
+      forceStoppedRef.current = false; // Reset force stop flag when starting
       setTranscript('');
       setFinalTranscript('');
       recognitionRef.current.start();
@@ -244,11 +247,12 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
 
-    // Immediately set all flags to prevent any restarts
+    // Immediately set all flags to prevent any restarts (synchronous)
     setIsListening(false);
     isListeningRef.current = false;
     setManuallyStopped(true);
     manuallyStoppedRef.current = true;
+    forceStoppedRef.current = true; // Set force stop flag immediately to prevent any restart attempts
 
     // Clear all timeouts immediately
     if (timeoutRef.current) {
@@ -268,9 +272,17 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       audioendTimeoutRef.current = null;
     }
 
-    // Force stop the recognition immediately with multiple methods
+    // Force stop the recognition immediately with multiple methods (synchronous)
     try {
-      // Abort is more forceful than stop - try multiple times
+      // Abort is more forceful than stop - try multiple times immediately
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
+      recognitionRef.current.abort();
       recognitionRef.current.abort();
       recognitionRef.current.abort();
       recognitionRef.current.abort();
@@ -280,46 +292,63 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         recognitionRef.current.stop();
         recognitionRef.current.stop();
         recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
+        recognitionRef.current.stop();
       } catch (stopError) {
         console.error('Failed to stop speech recognition:', stopError);
       }
     }
 
-    // Additional safety: ensure no restart can happen
+    // Force state cleanup immediately (synchronous)
+    setIsListening(false);
+    isListeningRef.current = false;
+    forceStoppedRef.current = true;
+
+    // Additional safety: ensure no restart can happen (minimal delay)
     setTimeout(() => {
       try {
         if (recognitionRef.current) {
           recognitionRef.current.abort();
         }
+        // Double-check force stop flag
+        forceStoppedRef.current = true;
       } catch (e) {
         // Ignore errors
       }
-    }, 50);
+    }, 10);
 
-    // Final safety check
+    // Final safety check (minimal delay)
     setTimeout(() => {
       try {
         if (recognitionRef.current) {
           recognitionRef.current.abort();
         }
+        forceStoppedRef.current = true;
       } catch (e) {
         // Ignore errors
       }
-    }, 150);
+    }, 25);
 
-    // Mobile-specific: Add additional cleanup to prevent microphone staying on
+    // Mobile-specific: Add additional cleanup to prevent microphone staying on (minimal delay)
     setTimeout(() => {
       try {
         if (recognitionRef.current) {
           // Force disconnect and cleanup
           recognitionRef.current.abort();
         }
+        forceStoppedRef.current = true;
       } catch (e) {
         // Ignore errors
       }
-    }, 300);
+    }, 50);
 
-    // Final cleanup - ensure everything is stopped
+    // Final cleanup - ensure everything is stopped (minimal delay)
     setTimeout(() => {
       try {
         if (recognitionRef.current) {
@@ -328,12 +357,13 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
           setIsListening(false);
           isListeningRef.current = false;
         }
+        forceStoppedRef.current = true;
       } catch (e) {
         // Ignore errors
       }
-    }, 500);
+    }, 100);
 
-    // Extra cleanup for mobile devices
+    // Extra cleanup for mobile devices (minimal delay)
     setTimeout(() => {
       try {
         if (recognitionRef.current) {
@@ -342,10 +372,11 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         // Force state reset even if recognition ref is null
         setIsListening(false);
         isListeningRef.current = false;
+        forceStoppedRef.current = true;
       } catch (e) {
         // Ignore errors
       }
-    }, 750);
+    }, 200);
   }, []);
 
   const resetTranscript = useCallback(() => {

@@ -13,6 +13,7 @@ The project has been recently initialized with a comprehensive implementation in
 - **Grocery Database**: Comprehensive database of 200+ items across 14 categories with fuzzy matching
 - **UI Components**: Full implementation using shadcn/ui components with Tailwind CSS styling
 - **Routing**: React Router setup with Landing Page, Main App, and 404 handling
+- **Mobile Microphone Fix (2025-12-27)**: Fixed critical issue where microphone wouldn't stop on mobile after clicking "Stop Adding". Added `forceStoppedRef` to prevent unwanted restarts and updated all event handlers to use synchronous refs instead of async state.
 
 ## Current Focus
 
@@ -31,7 +32,8 @@ The application is feature-complete for its core functionality. All major featur
 ### Speech Recognition Challenges
 
 - **Mobile Quirks**: Mobile browsers have different speech recognition behavior requiring special handling
-- **Microphone Control**: Multiple stop mechanisms needed to ensure microphone stops reliably (up to 750ms timeout)
+- **Microphone Control**: Multiple stop mechanisms needed to ensure microphone stops reliably (up to 200ms timeout)
+- **Race Condition Fix**: Event handlers now use synchronous refs (`isListeningRef.current`, `forceStoppedRef.current`) instead of async state to prevent microphone restarts
 - **Auto-Stop Timeout**: 3-second timeout for adding mode to prevent no-speech errors
 - **Continuous Listening**: Shopping mode has no timeout to allow indefinite operation
 
