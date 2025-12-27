@@ -1,29 +1,42 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { VoiceButton } from './VoiceButton';
 import { ShoppingList, type ShoppingItem } from './ShoppingList';
+import { HistoryTab } from './HistoryTab';
 import { Button } from './ui/button';
-import { Mic, Square } from 'lucide-react';
+import { Input } from './ui/input';
+import { Mic, Square, Type } from 'lucide-react';
 import { Card } from './ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/use-debounce';
 import { ShoppingCart, Plus, RotateCcw, Save } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, generateId } from '@/lib/utils';
 import { isValidGroceryItem, findBestMatch } from '@/data/groceryItems';
+import { saveCurrentList, loadCurrentList, saveHistory, loadHistory } from '@/lib/storage';
+import { type SavedList } from '@/types/shopping';
 import groceryHero from '@/assets/grocery-hero.jpg';
 
 type AppMode = 'adding' | 'shopping' | 'idle';
+type InputMode = 'voice' | 'text';
 
 export const GroceryApp: React.FC = () => {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [mode, setMode] = useState<AppMode>('idle');
-  const [history, setHistory] = useState<ShoppingItem[][]>([]);
+  const [history, setHistory] = useState<SavedList[]>([]);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [hasStartedShopping, setHasStartedShopping] = useState(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState(false);
   const [autoStopTimeoutRef, setAutoStopTimeoutRef] = useState<NodeJS.Timeout | null>(null);
+  const [activeTab, setActiveTab] = useState('current');
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>('voice');
+  const [textInput, setTextInput] = useState('');
+  const [isTextAdding, setIsTextAdding] = useState(false);
   const { toast } = useToast();
   const completionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const completionProcessedRef = useRef(false);
 
   // State for accumulating speech input
   const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
@@ -68,27 +81,49 @@ export const GroceryApp: React.FC = () => {
 
   // Ensure microphones are stopped when mode changes to idle
   useEffect(() => {
-    if (mode === 'idle') {
+    if (mode === 'idle' && !isTransitioning) {
       // Clear auto-stop timeout
       if (autoStopTimeoutRef) {
         clearTimeout(autoStopTimeoutRef);
         setAutoStopTimeoutRef(null);
       }
 
-      // Stop any active recognition when mode becomes idle
+      // Stop any active recognition when mode becomes idle (more aggressive)
       addItemsRecognition.stopListening();
       shoppingRecognition.stopListening();
+
+      // Additional safety stops for mobile devices
+      setTimeout(() => {
+        addItemsRecognition.stopListening();
+        shoppingRecognition.stopListening();
+      }, 50);
+
+      setTimeout(() => {
+        addItemsRecognition.stopListening();
+        shoppingRecognition.stopListening();
+      }, 150);
 
       // Additional safety: clear any accumulated transcript when idle
       setAccumulatedTranscript('');
     }
-  }, [mode, autoStopTimeoutRef]);
+  }, [mode, autoStopTimeoutRef, isTransitioning]);
 
   // Ensure microphones are stopped on component mount (page refresh/load)
   useEffect(() => {
-    // Stop any active microphones when component mounts
+    // Stop any active microphones when component mounts (more aggressive)
     addItemsRecognition.stopListening();
     shoppingRecognition.stopListening();
+
+    // Additional safety stops for mobile devices
+    setTimeout(() => {
+      addItemsRecognition.stopListening();
+      shoppingRecognition.stopListening();
+    }, 50);
+
+    setTimeout(() => {
+      addItemsRecognition.stopListening();
+      shoppingRecognition.stopListening();
+    }, 150);
 
     // Also ensure mode is idle on mount
     if (mode !== 'idle') {
@@ -96,7 +131,36 @@ export const GroceryApp: React.FC = () => {
     }
   }, []); // Empty dependency array means this runs only on mount
 
+  // Load current list and history from localStorage on component mount
+  useEffect(() => {
+    const savedList = loadCurrentList();
+    if (savedList && savedList.length > 0) {
+      setItems(savedList);
+    }
 
+    const savedHistory = loadHistory();
+    if (savedHistory && savedHistory.length > 0) {
+      setHistory(savedHistory);
+    }
+  }, []);
+
+  // Save current list to localStorage whenever items change (including empty state)
+  useEffect(() => {
+    saveCurrentList(items);
+  }, [items]);
+
+  // Save history to localStorage whenever history changes (including empty state)
+  useEffect(() => {
+    saveHistory(history);
+  }, [history]);
+
+  // Reset completion flag when items change from non-completed state
+  useEffect(() => {
+    const allCompleted = items.length > 0 && items.every(item => item.completed);
+    if (!allCompleted) {
+      completionProcessedRef.current = false;
+    }
+  }, [items]);
 
   // Speech recognition for adding items
   const addItemsRecognition = useSpeechRecognition({
@@ -129,10 +193,9 @@ export const GroceryApp: React.FC = () => {
     onError: (error) => {
       console.error('Speech recognition error:', error);
 
-      // If it's a no-speech error and we're in adding mode, automatically stop
+      // Don't automatically stop for no-speech errors - they're not critical
       if (error === 'no-speech' && mode === 'adding') {
-        console.log('No speech detected, stopping automatically');
-        handleStopAddingItems();
+        console.log('No speech detected, continuing to listen...');
         return;
       }
 
@@ -145,7 +208,9 @@ export const GroceryApp: React.FC = () => {
   });
   
   const handleStopAddingItems = () => {
-    if (isButtonDisabled) return; // Prevent rapid clicking
+    if (isButtonDisabled || isTransitioning) return; // Prevent rapid clicking and transitions
+
+    setIsTransitioning(true); // Start transition
 
     // Clear auto-stop timeout
     if (autoStopTimeoutRef) {
@@ -157,13 +222,14 @@ export const GroceryApp: React.FC = () => {
     addItemsRecognition.stopListening();
     setIsButtonDisabled(true); // Disable button during transition
 
-
-    // Force stop multiple times to ensure it actually stops
+    // Force stop multiple times to ensure it actually stops (more aggressive for mobile)
     setTimeout(() => addItemsRecognition.stopListening(), 25);
     setTimeout(() => addItemsRecognition.stopListening(), 50);
     setTimeout(() => addItemsRecognition.stopListening(), 75);
     setTimeout(() => addItemsRecognition.stopListening(), 100);
     setTimeout(() => addItemsRecognition.stopListening(), 150);
+    setTimeout(() => addItemsRecognition.stopListening(), 200);
+    setTimeout(() => addItemsRecognition.stopListening(), 300);
 
     // Then update the mode
     setMode('idle');
@@ -174,8 +240,16 @@ export const GroceryApp: React.FC = () => {
     // Also reset the recognition transcript
     addItemsRecognition.resetTranscript();
 
-    // Re-enable button after a short delay
-    setTimeout(() => setIsButtonDisabled(false), 300);
+    // Auto-save the list to history when stopping adding items
+    if (items.length > 0) {
+      saveToListHistory();
+    }
+
+    // End transition after ensuring microphone is stopped
+    setTimeout(() => {
+      setIsTransitioning(false);
+      setIsButtonDisabled(false);
+    }, 500);
   };
   
 
@@ -520,7 +594,7 @@ export const GroceryApp: React.FC = () => {
   useEffect(() => {
     const completedItems = items.filter(item => item.completed);
     const allCompleted = items.length > 0 && items.every(item => item.completed);
-
+    
     if (completedItems.length > 0 && !allCompleted) {
       // Show toast for individual items being completed
       const newlyCompleted = completedItems.filter(item => {
@@ -536,11 +610,14 @@ export const GroceryApp: React.FC = () => {
           });
         }, 0);
       }
-    } else if (allCompleted && items.length > 0) {
+    } else if (allCompleted && items.length > 0 && !completionProcessedRef.current) {
       // Stop any active speech recognition when shopping is complete
       if (mode === 'shopping') {
         shoppingRecognition.stopListening();
       }
+
+      // Mark that we've processed completion to prevent looping
+      completionProcessedRef.current = true;
 
       // Show completion toasts
       setTimeout(() => {
@@ -557,12 +634,15 @@ export const GroceryApp: React.FC = () => {
             description: "You've successfully completed your shopping list!",
             duration: 5000,
           });
-        }, 1000);
 
-        // Reload the page after delay to ensure clean state
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+          // Clear the list and reset state after showing celebration messages
+          setTimeout(() => {
+            setItems([]);
+            setMode('idle');
+            setHasStartedShopping(false);
+            completionProcessedRef.current = false;
+          }, 3000);
+        }, 1000);
       }, 0);
     }
   }, [items, toast, mode, shoppingRecognition]);
@@ -653,6 +733,27 @@ export const GroceryApp: React.FC = () => {
     }, 100);
   };
 
+  const handleTextInputSubmit = useCallback(() => {
+    if (textInput.trim()) {
+      parseAndAddItems(textInput.trim());
+      setTextInput('');
+    }
+  }, [textInput, parseAndAddItems]);
+
+  const handleStartTextAdding = () => {
+    setIsTextAdding(true);
+    setTextInput('');
+  };
+
+  const handleStopTextAdding = () => {
+    setIsTextAdding(false);
+    // Save to history (same as voice mode)
+    if (items.length > 0) {
+      saveToListHistory();
+    }
+    setTextInput('');
+  };
+
   const handleStartShopping = () => {
     if (items.length === 0) {
       toast({
@@ -672,27 +773,53 @@ export const GroceryApp: React.FC = () => {
       return;
     }
 
+    // Prevent starting if already transitioning
+    if (isTransitioning) return;
+
+    setIsTransitioning(true); // Start transition
+
     // Stop any active recognition before starting new one
     if (mode === 'adding') {
       addItemsRecognition.stopListening();
     }
 
-    setMode('shopping');
-    setHasStartedShopping(true);
-    shoppingRecognition.resetTranscript();
-    // Add a small delay to ensure previous recognition is fully stopped
+    // Wait for microphone to be fully stopped before starting shopping
     setTimeout(() => {
-      shoppingRecognition.startListening();
-    }, 100);
+      setMode('shopping');
+      setHasStartedShopping(true);
+      shoppingRecognition.resetTranscript();
+
+      // Add another delay to ensure previous recognition is fully stopped
+      setTimeout(() => {
+        shoppingRecognition.startListening();
+        setIsTransitioning(false); // End transition
+      }, 100);
+    }, 300); // Wait 300ms for microphone to fully stop
   };
 
   const handleStopShopping = () => {
-    // Stop the microphone immediately
+    if (isTransitioning) return;
+
+    setIsTransitioning(true); // Start transition
+
+    // Stop the microphone immediately with multiple fallback methods
     shoppingRecognition.stopListening();
+    setTimeout(() => shoppingRecognition.stopListening(), 25);
+    setTimeout(() => shoppingRecognition.stopListening(), 50);
+    setTimeout(() => shoppingRecognition.stopListening(), 75);
+    setTimeout(() => shoppingRecognition.stopListening(), 100);
+    setTimeout(() => shoppingRecognition.stopListening(), 150);
+    setTimeout(() => shoppingRecognition.stopListening(), 200);
+    setTimeout(() => shoppingRecognition.stopListening(), 300);
 
     // Update the state
     setMode('idle');
     setHasStartedShopping(false);
+
+    // End transition after ensuring microphone is stopped
+    setTimeout(() => {
+      setIsTransitioning(false);
+    }, 500);
   };
 
   const handleToggleItem = (id: string) => {
@@ -721,24 +848,52 @@ export const GroceryApp: React.FC = () => {
     setItems([]);
     setHasStartedShopping(false);
     setMode('idle');
+    setEditingListId(null); // Clear editing state when clearing list
+
+    // Explicitly clear localStorage to ensure data is removed
+    localStorage.removeItem('voice-shopper-current-list');
   };
 
   // Save current list to history
   const saveToListHistory = () => {
     if (items.length > 0) {
-      setHistory(prev => [items, ...prev.slice(0, 9)]); // Keep only last 10 lists
-      toast({
-        title: "List Saved",
-        description: "Your shopping list has been saved to history.",
-      });
+      const now = Date.now();
+
+      if (editingListId) {
+        // Update existing list
+        setHistory(prev => prev.map(list =>
+          list.id === editingListId
+            ? { ...list, items: [...items], updatedAt: now }
+            : list
+        ));
+        toast({
+          title: "List Updated",
+          description: "Your shopping list has been updated.",
+        });
+      } else {
+        // Create new list
+        const newList: SavedList = {
+          id: generateId(),
+          items: [...items],
+          createdAt: now,
+          updatedAt: now,
+        };
+        setHistory(prev => [newList, ...prev.slice(0, 9)]);
+        toast({
+          title: "List Saved",
+          description: "Your shopping list has been saved to history.",
+        });
+      }
     }
   };
 
   // Load list from history
-  const loadFromHistory = (index: number) => {
-    const list = history[index];
+  const loadFromHistory = (listId: string) => {
+    const list = history.find(l => l.id === listId);
     if (list) {
-      setItems(list);
+      setItems(list.items);
+      setEditingListId(listId); // Track that we're editing this list
+      setActiveTab('current'); // Switch to current list tab
       toast({
         title: "List Loaded",
         description: "Shopping list loaded from history.",
@@ -749,9 +904,27 @@ export const GroceryApp: React.FC = () => {
   // Clear history
   const clearHistory = () => {
     setHistory([]);
+    setEditingListId(null); // Clear editing state when clearing history
+    // Explicitly clear localStorage to ensure data is removed
+    localStorage.removeItem('voice-shopper-history');
     toast({
       title: "History Cleared",
       description: "Shopping list history has been cleared.",
+    });
+  };
+
+  // Delete a specific list from history
+  const deleteList = (listId: string) => {
+    setHistory(prev => prev.filter(list => list.id !== listId));
+
+    // If we deleted the list we were editing, clear the editing state
+    if (editingListId === listId) {
+      setEditingListId(null);
+    }
+
+    toast({
+      title: "List Deleted",
+      description: "Shopping list has been removed from history.",
     });
   };
 
@@ -793,36 +966,121 @@ export const GroceryApp: React.FC = () => {
               </div>
             )}
 
-
-
-            {/* Centered Add Items button - toggle between start/stop listening */}
-            <div className="flex justify-center">
+            {/* Input Mode Toggle */}
+            <div className="flex justify-center gap-2 w-full max-w-md">
               <Button
-                onClick={mode === 'adding' ? handleStopAddingItems : handleStartAddingItems}
-                variant="default"
-                size="lg"
-                disabled={isButtonDisabled}
-                className={cn(
-                  "px-6 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium",
-                  mode === 'adding'
-                    ? "bg-red-500 hover:bg-red-600"  // Red when actively listening
-                    : "bg-blue-500 hover:bg-blue-600",  // Blue when ready to start
-                  isButtonDisabled && "opacity-50 cursor-not-allowed"
-                )}
+                variant={inputMode === 'voice' ? 'default' : 'outline'}
+                onClick={() => {
+                  setInputMode('voice');
+                  setIsTextAdding(false); // Exit text adding mode
+                  // Stop voice recognition if switching from text to voice
+                  if (mode === 'adding') {
+                    handleStopAddingItems();
+                  }
+                }}
+                className="flex-1"
               >
-                {mode === 'adding' ? (
-                  <>
-                    <Square className="w-5 h-5 mr-2" />
-                    Stop Adding
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add Items
-                  </>
-                )}
+                <Mic className="w-4 h-4 mr-2" />
+                Voice
+              </Button>
+              <Button
+                variant={inputMode === 'text' ? 'default' : 'outline'}
+                onClick={() => {
+                  setInputMode('text');
+                  // Stop voice recognition if switching from voice to text
+                  if (mode === 'adding') {
+                    handleStopAddingItems();
+                  }
+                }}
+                className="flex-1"
+              >
+                <Type className="w-4 h-4 mr-2" />
+                Text
               </Button>
             </div>
+
+            {/* Text Input Mode - Not Adding */}
+            {inputMode === 'text' && !isTextAdding && (
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleStartTextAdding}
+                  variant="default"
+                  size="lg"
+                  className="px-6 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium bg-blue-500 hover:bg-blue-600"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Items
+                </Button>
+              </div>
+            )}
+
+            {/* Text Input Mode - Adding */}
+            {inputMode === 'text' && isTextAdding && (
+              <div className="space-y-3 w-full max-w-md mx-auto">
+                {/* Stop Adding Button */}
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleStopTextAdding}
+                    variant="default"
+                    size="lg"
+                    className="px-6 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium bg-red-500 hover:bg-red-600"
+                  >
+                    <Square className="w-5 h-5 mr-2" />
+                    Stop Adding
+                  </Button>
+                </div>
+
+                {/* Text Input Field */}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Type items (e.g., apples, bananas, milk)"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleTextInputSubmit();
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleTextInputSubmit} disabled={!textInput.trim()}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Voice Mode - Add Items button */}
+            {inputMode === 'voice' && (
+              <div className="flex justify-center">
+                <Button
+                  onClick={mode === 'adding' ? handleStopAddingItems : handleStartAddingItems}
+                  variant="default"
+                  size="lg"
+                  disabled={isButtonDisabled || isTransitioning}
+                  className={cn(
+                    "px-6 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium",
+                    mode === 'adding'
+                      ? "bg-red-500 hover:bg-red-600"  // Red when actively listening
+                      : "bg-blue-500 hover:bg-blue-600",  // Blue when ready to start
+                    (isButtonDisabled || isTransitioning) && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {mode === 'adding' ? (
+                    <>
+                      <Square className="w-5 h-5 mr-2" />
+                      Stop Adding
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add Items
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Start/Stop Shopping button - positioned below Add Items */}
             {items.length > 0 && !hasStartedShopping && (
@@ -830,12 +1088,14 @@ export const GroceryApp: React.FC = () => {
                 onClick={handleStartShopping}
                 variant="outline"
                 size="lg"
+                disabled={isTransitioning}
                 className={cn(
                   "px-4 py-3 text-sm font-medium rounded-xl border-primary/20 transition-all duration-200",
                   // Light green when ready to shop
                   mode === 'idle' && items.length > 0 && !hasStartedShopping
                     ? "bg-green-100 text-green-800 border-green-300 hover:bg-green-200 hover:text-green-900"
-                    : "hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                    : "hover:bg-blue-500 hover:text-white hover:border-blue-500",
+                  isTransitioning && "opacity-50 cursor-not-allowed"
                 )}
               >
                 🛒 Start Shopping
@@ -847,12 +1107,14 @@ export const GroceryApp: React.FC = () => {
                 onClick={handleStopShopping}
                 variant="outline"
                 size="lg"
+                disabled={isTransitioning}
                 className={cn(
                   "px-4 py-3 text-sm font-medium rounded-xl border-primary/20 transition-all duration-200",
                   // Dark green when actively shopping
                   hasStartedShopping
                     ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
-                    : "hover:bg-red-500 hover:text-white hover:border-red-500"
+                    : "hover:bg-red-500 hover:text-white hover:border-red-500",
+                  isTransitioning && "opacity-50 cursor-not-allowed"
                 )}
               >
                 ⏹️ Stop Shopping
@@ -894,44 +1156,54 @@ export const GroceryApp: React.FC = () => {
                   <span className="text-primary font-bold text-sm md:text-lg">1</span>
                 </div>
                 <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-base md:text-lg">Choose Input Mode</h3>
+                  <p className="text-muted-foreground text-xs md:text-sm">Toggle between Voice or Text input</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2 md:gap-3">
+                <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                  <span className="text-primary font-bold text-sm md:text-lg">2</span>
+                </div>
+                <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-base md:text-lg">Add Items with Voice</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">Press "Add Items" and speak your grocery list naturally</p>
                 </div>
               </div>
-
+              
               <div className="flex items-start gap-2 md:gap-3">
                 <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="text-primary font-bold text-sm md:text-lg">2</span>
+                  <span className="text-primary font-bold text-sm md:text-lg">3</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-base md:text-lg">Add Items with Text</h3>
+                  <p className="text-muted-foreground text-xs md:text-sm">Click "Add Items", type items separated by commas or "and", then click "Stop Adding" to save</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2 md:gap-3">
+                <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                  <span className="text-primary font-bold text-sm md:text-lg">4</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-base md:text-lg">Natural Speech Patterns</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">Say "apples and bananas" or "milk, bread, eggs"</p>
                 </div>
               </div>
-
+              
               <div className="flex items-start gap-2 md:gap-3">
                 <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="text-primary font-bold text-sm md:text-lg">3</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-base md:text-lg">Finish Your List</h3>
-                  <p className="text-muted-foreground text-xs md:text-sm">Click "Stop Adding" when finished adding items</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2 md:gap-3">
-                <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="text-primary font-bold text-sm md:text-lg">4</span>
+                  <span className="text-primary font-bold text-sm md:text-lg">5</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-base md:text-lg">Start Shopping</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">Press "Start Shopping" to begin voice check-off</p>
                 </div>
               </div>
-
+              
               <div className="flex items-start gap-2 md:gap-3">
                 <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="text-primary font-bold text-sm md:text-lg">5</span>
+                  <span className="text-primary font-bold text-sm md:text-lg">6</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-base md:text-lg">Voice Check-off</h3>
@@ -942,54 +1214,49 @@ export const GroceryApp: React.FC = () => {
           </Card>
         )}
 
-        {/* Shopping List - Moved to top with conditional spacing for mobile messages */}
-        <ShoppingList
-          items={items}
-          onToggleItem={handleToggleItem}
-          onRemoveItem={handleRemoveItem}
-          mode={mode}
-          hasStartedShopping={hasStartedShopping}
-          className="animate-slide-up"
-        />
+        {/* Tab Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4 md:mb-6">
+            <TabsTrigger value="current" className="rounded-xl">
+              Current List
+              {items.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                  {items.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="rounded-xl">
+              History
+              {history.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                  {history.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        
-        {/* History Section */}
-        {history.length > 0 && (
-          <Card className="p-4 md:p-6 lg:p-8 shadow-card rounded-xl md:rounded-2xl border-0 bg-white/80 backdrop-blur-sm">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
-              <h3 className="text-lg md:text-xl font-bold">Saved Lists</h3>
-              <Button
-                onClick={clearHistory}
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl self-start sm:self-auto"
-                aria-label="Clear all saved shopping lists from history"
-              >
-                <span className="hidden sm:inline">Clear History</span>
-                <span className="sm:hidden">Clear All</span>
-              </Button>
-            </div>
-            <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-60 overflow-y-auto pr-1 md:pr-2">
-              {history.map((list, index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center p-3 md:p-4 bg-muted/50 rounded-xl cursor-pointer hover:bg-muted transition-colors duration-300 border"
-                  onClick={() => loadFromHistory(index)}
-                >
-                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-primary flex-shrink-0"></div>
-                    <span className="font-medium text-sm md:text-base truncate">
-                      {list.length} item{list.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <span className="text-xs md:text-sm text-muted-foreground flex-shrink-0 ml-2">
-                    {new Date().toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+          <TabsContent value="current" className="mt-0">
+            {/* Shopping List */}
+            <ShoppingList
+              items={items}
+              onToggleItem={handleToggleItem}
+              onRemoveItem={handleRemoveItem}
+              mode={mode}
+              hasStartedShopping={hasStartedShopping}
+              className="animate-slide-up"
+            />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-0">
+            {/* History Tab */}
+            <HistoryTab
+              history={history}
+              onLoadList={loadFromHistory}
+              onClearHistory={clearHistory}
+              onDeleteList={deleteList}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

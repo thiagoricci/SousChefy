@@ -3,13 +3,14 @@ import type { SpeechRecognitionEvent, SpeechRecognitionErrorEvent } from '@/type
 
 // Enhanced Speech Recognition Hook optimized for mobile
 export interface UseSpeechRecognitionOptions {
-  continuous?: boolean;
-  interimResults?: boolean;
-  lang?: string;
-  timeout?: number; // Timeout in milliseconds
-  onResult?: (transcript: string, isFinal: boolean) => void;
-  onEnd?: () => void;
-  onError?: (error: string) => void;
+ continuous?: boolean;
+ interimResults?: boolean;
+ lang?: string;
+ timeout?: number; // Timeout in milliseconds
+ onResult?: (transcript: string, isFinal: boolean) => void;
+ onEnd?: () => void;
+ onError?: (error: string) => void;
+ mobileOptimized?: boolean; // New option for mobile optimization
 }
 
 export interface UseSpeechRecognitionReturn {
@@ -32,6 +33,7 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
     onResult,
     onEnd,
     onError,
+    mobileOptimized = false, // Default false for backward compatibility
   } = options;
 
   const [isSupported, setIsSupported] = useState(false);
@@ -46,6 +48,7 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
   const recognitionRef = useRef<any>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize speech recognition with mobile optimizations
   useEffect(() => {
@@ -56,30 +59,31 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       const recognition = new SpeechRecognition();
       
       // Mobile-optimized settings
-      recognition.continuous = continuous;
-      recognition.interimResults = interimResults;
-      recognition.lang = lang;
-      recognition.maxAlternatives = 1;
+       recognition.continuous = continuous;
+       recognition.interimResults = interimResults;
+       recognition.lang = lang;
+       recognition.maxAlternatives = 1;
       
-      // Critical for mobile: restart on audio end to maintain connection
-      recognition.addEventListener('audioend', () => {
-        isListeningRef.current = false;
-        // Only restart if NOT manually stopped and still supposed to be listening
-        if (isListening && continuous && !manuallyStoppedRef.current) {
-          // Small delay to prevent rapid restarts
-          timeoutRef.current = setTimeout(() => {
-            // Triple check all conditions before restarting - ensure manuallyStopped is still false
-            if (isListening && !manuallyStoppedRef.current && recognitionRef.current && !manuallyStoppedRef.current) {
-              try {
-                recognitionRef.current.start();
-                isListeningRef.current = true;
-              } catch (e) {
-                // Ignore if already started
-              }
-            }
-          }, 100);
-        }
-      });
+      // Mobile-optimized audioend handler - only restart if explicitly needed
+       recognition.addEventListener('audioend', () => {
+         isListeningRef.current = false;
+         // Only restart if NOT manually stopped and still supposed to be listening
+         // Add additional check to prevent unwanted restarts on mobile
+         if (isListening && continuous && !manuallyStoppedRef.current) {
+           // Small delay to prevent rapid restarts
+           audioendTimeoutRef.current = setTimeout(() => {
+             // Triple check all conditions before restarting - ensure manuallyStopped is still false
+             if (isListening && !manuallyStoppedRef.current && recognitionRef.current && !manuallyStoppedRef.current) {
+               try {
+                 recognitionRef.current.start();
+                 isListeningRef.current = true;
+               } catch (e) {
+                 // Ignore if already started
+               }
+             }
+           }, 100);
+         }
+       });
       
       
       recognition.addEventListener('result', (event) => {
@@ -88,38 +92,39 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
           clearTimeout(inactivityTimeoutRef.current);
         }
         
-        // Set new inactivity timeout
-        if (timeout > 0 && isListening) {
-          inactivityTimeoutRef.current = setTimeout(() => {
-            if (isListening && recognitionRef.current) {
-              try {
-                recognitionRef.current.abort();
-                setIsListening(false);
-                isListeningRef.current = false;
-              } catch (error) {
-                console.error('Failed to stop recognition on timeout:', error);
-              }
-            }
-          }, timeout);
-        }
+        // Set new inactivity timeout - longer for mobile to prevent unwanted stops
+         if (timeout > 0 && isListening) {
+           inactivityTimeoutRef.current = setTimeout(() => {
+             if (isListening && recognitionRef.current && !manuallyStoppedRef.current) {
+               try {
+                 recognitionRef.current.abort();
+                 setIsListening(false);
+                 isListeningRef.current = false;
+               } catch (error) {
+                 console.error('Failed to stop recognition on timeout:', error);
+               }
+             }
+           }, timeout);
+         }
 
-        // Set auto-stop timeout (30 seconds of complete silence)
-        if (isListening && !manuallyStoppedRef.current) {
-          if (autoStopTimeoutRef.current) {
-            clearTimeout(autoStopTimeoutRef.current);
-          }
-          autoStopTimeoutRef.current = setTimeout(() => {
-            if (isListening && !manuallyStoppedRef.current && recognitionRef.current) {
-              try {
-                recognitionRef.current.stop();
-                setIsListening(false);
-                isListeningRef.current = false;
-              } catch (error) {
-                console.error('Failed to auto-stop recognition:', error);
-              }
-            }
-          }, 3000); // 3 seconds
-        }
+        // Set auto-stop timeout (longer for mobile to prevent unwanted stops)
+         if (isListening && !manuallyStoppedRef.current) {
+           if (autoStopTimeoutRef.current) {
+             clearTimeout(autoStopTimeoutRef.current);
+           }
+           autoStopTimeoutRef.current = setTimeout(() => {
+             if (isListening && !manuallyStoppedRef.current && recognitionRef.current) {
+               try {
+                 // Use abort instead of stop for more forceful termination
+                 recognitionRef.current.abort();
+                 setIsListening(false);
+                 isListeningRef.current = false;
+               } catch (error) {
+                 console.error('Failed to auto-stop recognition:', error);
+               }
+             }
+           }, 8000); // 8 seconds - longer for mobile but still auto-stop
+         }
         
         let interimTranscript = '';
         let finalText = '';
@@ -151,10 +156,17 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
           // The audioend handler will restart recognition if needed
           return;
         }
-        
+
+        // Handle no-speech error more gracefully - don't stop listening immediately
+        if (event.error === 'no-speech') {
+          console.log('No speech detected, continuing to listen...');
+          // Don't call onError for no-speech, as it's not really an error in this context
+          return;
+        }
+
         console.error('Speech recognition error:', event.error);
         onError?.(event.error);
-        
+
         // Handle mobile-specific errors
         if (event.error === 'network' || event.error === 'not-allowed') {
           setIsListening(false);
@@ -189,6 +201,9 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       if (autoStopTimeoutRef.current) {
         clearTimeout(autoStopTimeoutRef.current);
       }
+      if (audioendTimeoutRef.current) {
+        clearTimeout(audioendTimeoutRef.current);
+      }
     };
   }, [continuous, interimResults, lang, onResult, onEnd, onError]);
 
@@ -201,6 +216,9 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       }
       if (autoStopTimeoutRef.current) {
         clearTimeout(autoStopTimeoutRef.current);
+      }
+      if (audioendTimeoutRef.current) {
+        clearTimeout(audioendTimeoutRef.current);
       }
     };
   }, []);
@@ -245,6 +263,10 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
       clearTimeout(autoStopTimeoutRef.current);
       autoStopTimeoutRef.current = null;
     }
+    if (audioendTimeoutRef.current) {
+      clearTimeout(audioendTimeoutRef.current);
+      audioendTimeoutRef.current = null;
+    }
 
     // Force stop the recognition immediately with multiple methods
     try {
@@ -284,6 +306,46 @@ export const useSpeechRecognition = (options: UseSpeechRecognitionOptions = {}):
         // Ignore errors
       }
     }, 150);
+
+    // Mobile-specific: Add additional cleanup to prevent microphone staying on
+    setTimeout(() => {
+      try {
+        if (recognitionRef.current) {
+          // Force disconnect and cleanup
+          recognitionRef.current.abort();
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 300);
+
+    // Final cleanup - ensure everything is stopped
+    setTimeout(() => {
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.abort();
+          // Force state cleanup
+          setIsListening(false);
+          isListeningRef.current = false;
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 500);
+
+    // Extra cleanup for mobile devices
+    setTimeout(() => {
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.abort();
+        }
+        // Force state reset even if recognition ref is null
+        setIsListening(false);
+        isListeningRef.current = false;
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 750);
   }, []);
 
   const resetTranscript = useCallback(() => {
