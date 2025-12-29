@@ -5,14 +5,14 @@ import landingImage from '../assets/landing-hero.png';
 const LandingPage = () => {
   return (
     <div className="flex flex-col h-screen">
-      <div className="flex items-center justify-center p-4 pb-2 max-h-[45vh] md:p-8 md:pb-4 md:max-h-none">
+      <div className="flex-1 flex items-center justify-center px-4 max-h-[45vh] md:p-8 md:pb-4 md:max-h-none">
         <img
           src={landingImage}
           alt="Grocery shopping illustration"
           className="max-w-full h-auto w-full max-w-[280px] sm:max-w-xs md:max-w-sm lg:max-w-md object-contain"
         />
       </div>
-      <div className="bg-white p-4 md:p-8 rounded-t-3xl shadow-lg flex-shrink-0">
+      <div className="bg-white p-4 pb-8 md:p-8 rounded-t-3xl shadow-lg flex-shrink-0">
         <h1 className="text-2xl md:text-3xl font-bold text-center mb-3 md:mb-4">
           Create a Shopping List Right from Your Phone
         </h1>
