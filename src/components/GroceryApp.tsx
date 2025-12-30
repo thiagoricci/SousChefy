@@ -3,12 +3,10 @@ import { ShoppingList, type ShoppingItem } from './ShoppingList';
 import { HistoryTab } from './HistoryTab';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Mic, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
-import { useDebounce } from '@/hooks/use-debounce';
 import { cn, generateId } from '@/lib/utils';
 import { isValidGroceryItem, findBestMatch } from '@/data/groceryItems';
 import { saveCurrentList, loadCurrentList, saveHistory, loadHistory } from '@/lib/storage';
@@ -21,18 +19,11 @@ export const GroceryApp: React.FC = () => {
   const [history, setHistory] = useState<SavedList[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('editing');
-  const [isListening, setIsListening] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [activeTab, setActiveTab] = useState('make-list');
   const { toast } = useToast();
   const completionProcessedRef = useRef(false);
-
-  // State for accumulating speech input
-  const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
-
-  // Debounced transcript for processing
-  const debouncedTranscript = useDebounce(accumulatedTranscript, 500);
 
   // Load current list and history from localStorage on component mount
   useEffect(() => {
@@ -65,77 +56,6 @@ export const GroceryApp: React.FC = () => {
     }
   }, [items]);
 
-  // Speech recognition for adding items
-  const speechRecognition = useSpeechRecognition({
-    continuous: true,
-    interimResults: true,
-    timeout: 3000,
-    onResult: (transcript, isFinal) => {
-      if (transcript.trim()) {
-        const lowerTranscript = transcript.toLowerCase().trim();
-        const stopPhrases = ["that's it", "done", "finished", "list complete", "stop", "finish", "that's all", "all done", "i'm done", "complete"];
-
-        if (stopPhrases.some(phrase => lowerTranscript.includes(phrase))) {
-          handleStopListening();
-          return;
-        }
-
-        // Show live transcript in input field
-        setTextInput(transcript);
-
-        // Accumulate the transcript for processing
-        if (isFinal) {
-          setAccumulatedTranscript(prev => prev + ' ' + transcript.trim());
-        }
-      }
-    },
-    onEnd: () => {
-      // Speech recognition ended
-    },
-    onError: (error) => {
-      console.error('Speech recognition error:', error);
-
-      if (error === 'no-speech' && isListening) {
-        console.log('No speech detected, continuing to listen...');
-        return;
-      }
-
-      toast({
-        title: "Voice Recognition Error",
-        description: "Please try again or check microphone permissions.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleStartListening = () => {
-    if (!speechRecognition.isSupported) {
-      toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support voice recognition.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsListening(true);
-    speechRecognition.resetTranscript();
-    speechRecognition.startListening();
-  };
-
-  const handleStopListening = () => {
-    setIsListening(false);
-    speechRecognition.stopListening();
-    setAccumulatedTranscript('');
-  };
-
-  const handleMicToggle = () => {
-    if (isListening) {
-      handleStopListening();
-    } else {
-      handleStartListening();
-    }
-  };
 
   // Function to extract quantity and unit from item name
   const extractQuantity = useCallback((itemName: string): { quantity: number | undefined, unit: string | undefined, itemName: string } => {
@@ -341,13 +261,6 @@ export const GroceryApp: React.FC = () => {
     }
   }, [extractQuantity, toast]);
 
-  // Process the debounced transcript
-  useEffect(() => {
-    if (debouncedTranscript.trim()) {
-      parseAndAddItems(debouncedTranscript.trim());
-      setAccumulatedTranscript('');
-    }
-  }, [debouncedTranscript, parseAndAddItems]);
 
   const handleTextInputSubmit = useCallback(() => {
     if (textInput.trim()) {
@@ -406,6 +319,7 @@ export const GroceryApp: React.FC = () => {
         updatedAt: now,
       };
       setHistory(prev => [newList, ...prev.slice(0, 9)]);
+      setEditingListId(newList.id);
       toast({
         title: "List Saved",
         description: "Your shopping list has been saved to history.",
@@ -566,11 +480,11 @@ export const GroceryApp: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Input Field with Inline Mic */}
+                {/* Input Field */}
                 <div className="relative">
                   <Input
                     type="text"
-                    placeholder="Type or speak items..."
+                    placeholder="Type items..."
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -578,20 +492,8 @@ export const GroceryApp: React.FC = () => {
                         handleTextInputSubmit();
                       }
                     }}
-                    className="pr-12 h-12 md:h-14 text-base"
+                    className="h-12 md:h-14 text-base"
                   />
-                  <button
-                    onClick={handleMicToggle}
-                    className={cn(
-                      "absolute right-2 top-1/2 -translate-y-1/2 p-3 md:p-2 rounded-full transition-all duration-200 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0",
-                      isListening
-                        ? "bg-red-500 hover:bg-red-600 text-white"
-                        : "bg-green-500 hover:bg-green-600 text-white"
-                    )}
-                    aria-label={isListening ? "Stop listening" : "Start listening"}
-                  >
-                    <Mic className="w-6 h-6 md:w-5 md:h-5" />
-                  </button>
                 </div>
 
                 {/* Done Button */}

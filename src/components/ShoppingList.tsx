@@ -264,8 +264,9 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
               {groupedItems[category].map((item, index) => (
                 <div
                   key={item.id}
+                  onClick={() => onToggleItem(item.id)}
                   className={cn(
-                    "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 animate-slide-up hover:shadow-md",
+                    "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 animate-slide-up hover:shadow-md cursor-pointer",
                     item.completed
                       ? "bg-secondary/50 border-primary/20"
                       : "bg-background border-border hover:border-primary/30"
@@ -312,7 +313,10 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onRemoveItem(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveItem(item.id);
+                      }}
                       className="flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-3 md:p-2 rounded-xl transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"
                       aria-label="Remove item"
                     >
