@@ -439,7 +439,7 @@ export const GroceryApp: React.FC = () => {
         {/* Header */}
         <div className="text-center py-4 md:py-6">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
-            Grocerly
+            Grocerli
           </h1>
         </div>
 

@@ -1,6 +1,6 @@
 {
-  "name": "Grocerly",
-  "short_name": "Grocerly",
+  "name": "Grocerli",
+  "short_name": "Grocerli",
   "description": "Voice-controlled grocery shopping application",
   "start_url": "/",
   "display": "standalone",

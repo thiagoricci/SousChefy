@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Voice Shopper',
-        short_name: 'VoiceShopper',
+        name: 'Grocerli',
+        short_name: 'Grocerli',
         description: 'Voice-controlled grocery shopping application',
         theme_color: '#ffffff',
         background_color: '#ffffff',
