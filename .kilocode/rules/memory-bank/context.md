@@ -2,18 +2,16 @@
 
 ## Current State
 
-SousChefy is a fully functional voice-controlled grocery shopping application built with React 18, TypeScript, and Vite. The application is currently in a stable state with all core features implemented and working.
+SousChefy is a fully functional text-based grocery shopping application built with React 18, TypeScript, and Vite. The application is currently in a stable state with all core features implemented and working.
 
 ## Recent Work
 
 The project has been recently initialized with a comprehensive implementation including:
 
-- **Core Application**: Complete voice recognition system with dual-mode operation (Adding and Shopping modes)
-- **Speech Recognition**: Custom hook (`useSpeechRecognition`) with mobile optimizations and aggressive stop mechanisms
+- **Core Application**: Complete text-based shopping list system with dual-mode operation (Editing and Shopping modes)
 - **Grocery Database**: Comprehensive database of 200+ items across 14 categories with fuzzy matching
 - **UI Components**: Full implementation using shadcn/ui components with Tailwind CSS styling
 - **Routing**: React Router setup with Landing Page, Main App, and 404 handling
-- **Mobile Microphone Fix (2025-12-27)**: Fixed critical issue where microphone wouldn't stop on mobile after clicking "Stop Adding". Added `forceStoppedRef` to prevent unwanted restarts and updated all event handlers to use synchronous refs instead of async state.
 - **List and Recipe Deletion (2026-01-17)**: Fixed list deletion to also delete from database. Previously, lists were only removed from localStorage/state but persisted in database. Updated `deleteList` function in GroceryApp to call `listsApi.delete()` with graceful error handling for offline/local-only lists. Recipe deletion was already working correctly.
 - **ChefAI List Creation (2026-01-17)**: Enabled ChefAI to create shopping lists for users. Users can now tell ChefAI what they need (e.g., "I need milk, eggs, and bread"), and ChefAI will:
   - Parse the request using OpenAI
@@ -29,8 +27,7 @@ The project has been recently initialized with a comprehensive implementation in
   - Removed header bar for more space-efficient design
   - Auto-scrolling when panel opens and when new messages arrive
   - Smooth expand/collapse animation with 300ms duration
-  - Voice input support with Web Speech API integration
-  - Auto-send on silence (3 seconds of no speech)
+  - Text input support
   - Streaming responses from ChefAI for real-time feedback
 - **ChefAI Recipe Saving and History Access (2026-01-18)**: Enhanced ChefAI with comprehensive new capabilities:
   - **Recipe Saving**: ChefAI can now save recipes directly from conversations
@@ -92,12 +89,12 @@ The project has been recently initialized with a comprehensive implementation in
 
 The application is feature-complete for its core functionality. All major features are implemented:
 
-1. Voice input for adding items with natural language processing
-2. Shopping mode for hands-free item check-off
+1. Text input for adding items with name, quantity, and unit fields
+2. Shopping mode for checking off items while shopping
 3. Category-based item organization with emoji display
 4. Shopping list history management (save/load up to 10 lists)
 5. Keyboard shortcuts (A for add, S for shop, Escape to stop)
-6. Mobile-optimized speech recognition
+6. Mobile-optimized UI with responsive design
 7. Celebration system with audio feedback
 8. AI-powered recipe generation using OpenAI API
 9. Recipe saving and management capabilities
@@ -105,59 +102,47 @@ The application is feature-complete for its core functionality. All major featur
 
 ## Known Technical Considerations
 
-### Speech Recognition Challenges
-
-- **Mobile Quirks**: Mobile browsers have different speech recognition behavior requiring special handling
-- **Microphone Control**: Multiple stop mechanisms needed to ensure microphone stops reliably (up to 200ms timeout)
-- **Race Condition Fix**: Event handlers now use synchronous refs (`isListeningRef.current`, `forceStoppedRef.current`) instead of async state to prevent microphone restarts
-- **Auto-Stop Timeout**: 3-second timeout for adding mode to prevent no-speech errors
-- **Continuous Listening**: Shopping mode has no timeout to allow indefinite operation
-
 ### Performance Optimizations
 
 - **Debounced Processing**: 500ms debounce on transcript processing to avoid excessive re-renders
-- **Aggressive Cleanup**: Multiple timeout clears and stop calls to prevent memory leaks
-- **State Management**: Proper cleanup on mode changes and component unmount
 - **Callback Memoization**: `useCallback` for event handlers
 - **Computed Values**: `useMemo` for expensive calculations
+- **State Management**: Proper cleanup on mode changes and component unmount
 - **Context Management**: Shopping history limited to last 5 lists in ChefAI context to manage token limits
 
 ### Performance Bottlenecks
 
 1. **Grocery Database Lookup**: O(n) search through 200+ items (acceptable for current scale)
-2. **Speech Recognition**: Browser-dependent performance
-3. **Large Shopping Lists**: Rendering performance with 100+ items
-4. **ChefAI Context**: Shopping history summary adds to context size
+2. **Large Shopping Lists**: Rendering performance with 100+ items
+3. **ChefAI Context**: Shopping history summary adds to context size
 
 ## Security Considerations
 
-1. **Microphone Permissions**: Requires user consent
-2. **No External APIs**: All processing happens in-browser
-3. **No Data Persistence**: Lists stored in memory only (history in localStorage)
-4. **HTTPS Required**: Speech API requires secure context
-5. **Database Security**: All data operations are user-specific (filtered by userId in backend)
-6. **Recipe Security**: Recipes are user-specific with ownership verification
+1. **No External APIs**: All processing happens in-browser (except ChefAI OpenAI API)
+2. **No Data Persistence**: Lists stored in memory only (history in localStorage)
+3. **Database Security**: All data operations are user-specific (filtered by userId in backend)
+4. **Recipe Security**: Recipes are user-specific with ownership verification
 
 ## Browser Compatibility
 
 ### Supported Browsers
 
 - **Chrome/Edge** (full support)
-- **Safari** (partial support, different behavior)
-- **Firefox** (limited support)
+- **Safari** (full support)
+- **Firefox** (full support)
 
 ### Mobile Considerations
 
-- **iOS Safari**: Different speech recognition behavior
-- **Android Chrome**: Generally good support
-- **Requires special handling for mobile quirks**
+- **iOS Safari**: Full support with responsive design
+- **Android Chrome**: Full support with responsive design
+- **All mobile browsers**: Optimized touch interactions
 
 ## Next Steps
 
 The application is feature-complete for its core functionality. Potential areas for future enhancement:
 
-1. **Testing**: Add unit and integration tests for speech recognition logic
-2. **Error Handling**: Improve error recovery for speech recognition failures
+1. **Testing**: Add unit and integration tests for text input logic
+2. **Error Handling**: Improve error recovery for API failures
 3. **Offline Support**: Consider PWA capabilities for offline usage
 4. **Analytics**: Add usage tracking to understand user behavior
 5. **Internationalization**: Support for multiple languages
@@ -180,7 +165,6 @@ The application is ready for deployment with:
 - **Production Build**: Configured via `npm run build`
 - **Static Site Hosting**: Compatible with any static hosting service (Vercel, Netlify, GitHub Pages, Cloudflare Pages, AWS S3 + CloudFront)
 - **No Backend Server Required**: All processing happens in-browser with no external service dependencies
-- **HTTPS Required**: Speech API requires secure context
 - **No API Keys Required**: Browser-native APIs only (no external service dependencies)
 
 ### Deployment Checklist
@@ -188,26 +172,24 @@ The application is ready for deployment with:
 1. Build application: `npm run build`
 2. Upload `dist/` directory to hosting service
 3. Ensure HTTPS is enabled
-4. Test microphone permissions
-5. Test speech recognition functionality
-6. Test ChefAI recipe saving and history access
-7. Verify recipe persistence to database
-8. Test shopping list management
-9. Verify shopping history access
+4. Test ChefAI recipe saving and history access
+5. Verify recipe persistence to database
+6. Test shopping list management
+7. Verify shopping history access
 
 ## Technical Constraints
 
 ### Browser Support
 
-- **Chrome/Edge**: Full support for Web Speech API
-- **Safari**: Partial support, different behavior
-- **Firefox**: Limited support
+- **Chrome/Edge**: Full support for all features
+- **Safari**: Full support for all features
+- **Firefox**: Full support for all features
 
 ### Mobile Considerations
 
-- **iOS Safari**: Different speech recognition behavior
-- **Android Chrome**: Generally good support
-- **Requires special handling for mobile quirks**
+- **iOS Safari**: Full support with responsive design
+- **Android Chrome**: Full support with responsive design
+- **All mobile browsers**: Optimized touch interactions
 
 ## Architecture Summary
 
@@ -217,7 +199,6 @@ SousChefy follows a component-based architecture with clear separation of concer
 - **Backend**: Express.js with Prisma ORM (PostgreSQL database)
 - **APIs**: RESTful APIs for lists, recipes, and authentication
 - **State Management**: Local component state with localStorage fallback
-- **Speech Recognition**: Web Speech API with custom hook
 - **ChefAI**: OpenAI integration with function calling support
 
 The system is production-ready and follows modern best practices for React applications.
@@ -239,6 +220,7 @@ The system is production-ready and follows modern best practices for React appli
    - Shopping history is summarized in ChefAI context to manage token limits
    - Supports personalized meal planning based on historical shopping data
    - Enables ChefAI to understand user preferences and shopping habits
+   - Full integration with existing shopping list management system
 
 ### User Experience Improvements
 

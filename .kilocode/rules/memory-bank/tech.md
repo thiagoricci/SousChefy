@@ -60,7 +60,6 @@
 
 ### Browser APIs
 
-- **Web Speech API**: Browser-native speech recognition
 - **Web Audio API**: Audio generation for celebration sounds
 - **OpenAI API**: GPT-4o-mini model for recipe generation
 
@@ -89,14 +88,14 @@
 
 - **Node.js**: Version 18 or higher
 - **npm**: Package manager (package-lock.json present)
-- **Modern Browser**: Chrome, Safari, or Edge with microphone support
+- **Modern Browser**: Chrome, Safari, or Edge
 
 ### Installation
 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd voice-shopper
+cd souschefy
 
 # Install dependencies
 npm install
@@ -125,22 +124,14 @@ npm run preview      # Preview production build
 
 ### Browser Support
 
-- **Chrome/Edge**: Full support for Web Speech API
-- **Safari**: Partial support, different behavior
-- **Firefox**: Limited support
-- **Mobile**: Special handling required for mobile browsers
-
-### Speech Recognition Limitations
-
-- **HTTPS Required**: Speech API requires secure context
-- **Microphone Permission**: User must grant microphone access
-- **Browser-Dependent**: Behavior varies across browsers
-- **No Cross-Browser Consistency**: Different implementations across browsers
+- **Chrome/Edge**: Full support for all features
+- **Safari**: Full support for all features
+- **Firefox**: Full support for all features
+- **Mobile**: Optimized for mobile browsers
 
 ### Performance Considerations
 
 - **Grocery Database**: O(n) lookup through 200+ items
-- **Speech Recognition**: Browser-dependent performance
 - **Large Lists**: Rendering performance with 100+ items
 
 ## Dependencies
@@ -209,7 +200,7 @@ All dependencies listed in package.json under "devDependencies" are only require
 ### Naming Conventions
 
 - **Components**: PascalCase (e.g., `GroceryApp`, `ShoppingList`)
-- **Hooks**: camelCase with `use` prefix (e.g., `useSpeechRecognition`, `useDebounce`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useDebounce`, `useToast`)
 - **Types**: PascalCase (e.g., `ShoppingItem`, `AppMode`)
 - **Utilities**: camelCase (e.g., `cn`, `isValidGroceryItem`)
 - **Constants**: UPPER_SNAKE_CASE (e.g., `GROCERY_ITEMS`, `CATEGORY_NAMES`)
@@ -250,7 +241,7 @@ The application is a static site and can be deployed to any static hosting servi
 
 ### Requirements
 
-- HTTPS (required for Web Speech API)
+- HTTPS (not required for text-based features)
 - Backend server for data persistence (Express.js + PostgreSQL)
 - OpenAI API key for ChefAI functionality
 - Environment variable: `VITE_OPENAI_API_KEY`
@@ -260,10 +251,8 @@ The application is a static site and can be deployed to any static hosting servi
 1. Build application: `npm run build`
 2. Upload `dist/` directory to hosting service
 3. Ensure HTTPS is enabled
-4. Test microphone permissions
-5. Test speech recognition functionality
-6. Test ChefAI recipe saving and history access
-7. Verify recipe persistence to database
-8. Test shopping list management
-9. Verify shopping history access
-10. Configure `VITE_OPENAI_API_KEY` environment variable for ChefAI functionality
+4. Test ChefAI recipe saving and history access
+5. Verify recipe persistence to database
+6. Test shopping list management
+7. Verify shopping history access
+8. Configure `VITE_OPENAI_API_KEY` environment variable for ChefAI functionality

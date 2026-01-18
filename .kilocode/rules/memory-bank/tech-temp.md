@@ -1,4 +1,4 @@
-# Voice Shopper - Technical Documentation
+# SousChefy - Technical Documentation
 
 ## Technologies Used
 
@@ -52,31 +52,49 @@
 ### Development Tools
 
 - **ESLint 9.32.0**: Code linting
-  - **@eslint/js 9.32.0**: ESLint JavaScript configuration
-  - **typescript-eslint 8.38.0**: TypeScript ESLint plugin
-  - **eslint-plugin-react-hooks 5.2.0**: React hooks linting
-  - **eslint-plugin-react-refresh 0.4.20**: React refresh linting
-  - **globals 15.15.0**: Global variables for ESLint
+- **@eslint/js 9.32.0**: ESLint JavaScript configuration
+- **typescript-eslint 8.38.0**: TypeScript ESLint plugin
+- **eslint-plugin-react-hooks 5.2.0**: React hooks linting
+- **eslint-plugin-react-refresh 0.4.20**: React refresh linting
+- **globals 15.15.0**: Global variables for ESLint
 
 ### Browser APIs
 
-- **Web Speech API**: Browser-native speech recognition
 - **Web Audio API**: Audio generation for celebration sounds
 
-### Development Setup
+### AI Integration
+
+- **OpenAI API**: GPT-4o-mini model for ChefAI
+  - Function calling support for actions (add/remove items, save recipes, show recipes)
+  - Streaming responses for real-time feedback
+  - Context-aware conversations with shopping list, recipes, and history
+- **Environment Variables**: `VITE_OPENAI_API_KEY` required for ChefAI functionality
+
+### Backend Integration
+
+- **Express.js**: RESTful API server for data persistence
+- **Prisma ORM**: Database ORM for PostgreSQL
+- **PostgreSQL**: Relational database for storing lists, recipes, and user data
+- **Authentication**: JWT-based authentication system
+- **API Endpoints**:
+  - `/api/lists`: Shopping list CRUD operations
+  - `/api/recipes`: Recipe CRUD operations
+  - `/api/auth`: User authentication and session management
+
+## Development Setup
 
 ### Prerequisites
 
 - **Node.js**: Version 18 or higher
 - **npm**: Package manager (package-lock.json present)
-- **Modern Browser**: Chrome, Safari, or Edge with microphone support
+- **Modern Browser**: Chrome, Safari, or Edge
 
 ### Installation
 
 ```bash
 # Clone repository
 git clone <repository-url>
-cd voice-shopper
+cd souschefy
 
 # Install dependencies
 npm install
@@ -101,57 +119,19 @@ npm run preview      # Preview production build
 - **Port**: 8080
 - **History API Fallback**: Enabled for client-side routing
 
-### Technical Constraints
+## Technical Constraints
 
 ### Browser Support
 
-- **Chrome/Edge**: Full support for Web Speech API
-- **Safari**: Partial support, different behavior
-- **Firefox**: Limited support
-
-### Speech Recognition Limitations
-
-- **HTTPS Required**: Speech API requires secure context
-- **Microphone Permission**: User must grant microphone access
-- **Browser-Dependent**: Behavior varies across browsers
-- **No Cross-Browser Consistency**: Different implementations across browsers
+- **Chrome/Edge**: Full support for all features
+- **Safari**: Full support for all features
+- **Firefox**: Full support for all features
+- **Mobile**: Optimized for mobile browsers
 
 ### Performance Considerations
 
-### Optimizations Implemented
-
-1. **Debounced Processing**: Prevents excessive re-renders during speech
-2. **Callback Memoization**: `useCallback` for event handlers
-3. **Computed Values**: `useMemo` for expensive calculations
-4. **Cleanup on Unmount**: Proper timeout and event listener cleanup
-5. **Aggressive Stop Mechanism**: Prevents memory leaks from hanging microphones
-
-### Potential Bottlenecks
-
-1. **Grocery Database Lookup**: O(n) search through 200+ items (acceptable for current scale)
-2. **Speech Recognition**: Browser-dependent performance
-3. **Large Shopping Lists**: Rendering performance with 100+ items
-
-### Security Considerations
-
-1. **Microphone Permissions**: Requires user consent
-2. **No External APIs**: All processing happens in-browser
-3. **No Data Persistence**: Lists stored in memory only (history in localStorage)
-4. **HTTPS Required**: Speech API requires secure context
-
-### Browser Compatibility
-
-#### Supported Browsers
-
-- **Chrome/Edge** (full support)
-- **Safari** (partial support, different behavior)
-- **Firefox** (limited support)
-
-### Mobile Considerations
-
-- **iOS Safari**: Different speech recognition behavior
-- **Android Chrome**: Generally good support
-- **Requires special handling for mobile quirks**
+- **Grocery Database**: O(n) lookup through 200+ items
+- **Large Lists**: Rendering performance with 100+ items
 
 ## Dependencies
 
@@ -183,7 +163,6 @@ All dependencies listed in package.json under "devDependencies" are only require
 - **ESLint**: Configured with TypeScript support and React rules
 - **TypeScript**: Strict mode disabled for flexibility (noImplicitAny: false)
 - **Path Aliases**: `@/*` maps to `./src/*`
-- **Component Tagger**: Lovable component tagger in development mode
 
 ### Build Configuration
 
@@ -220,7 +199,7 @@ All dependencies listed in package.json under "devDependencies" are only require
 ### Naming Conventions
 
 - **Components**: PascalCase (e.g., `GroceryApp`, `ShoppingList`)
-- **Hooks**: camelCase with `use` prefix (e.g., `useSpeechRecognition`, `useDebounce`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useDebounce`, `useToast`)
 - **Types**: PascalCase (e.g., `ShoppingItem`, `AppMode`)
 - **Utilities**: camelCase (e.g., `cn`, `isValidGroceryItem`)
 - **Constants**: UPPER_SNAKE_CASE (e.g., `GROCERY_ITEMS`, `CATEGORY_NAMES`)
@@ -235,7 +214,9 @@ All dependencies listed in package.json under "devDependencies" are only require
 
 ## Environment Variables
 
-No environment variables are currently required. The application runs entirely in the browser with no backend dependencies.
+- **VITE_OPENAI_API_KEY**: Required for ChefAI functionality (OpenAI GPT-4o-mini API key)
+- The application runs primarily in the browser with ChefAI requiring OpenAI API access
+- Backend API endpoints are configured in `src/lib/api.ts` and related API files
 
 ## Deployment
 
@@ -259,15 +240,18 @@ The application is a static site and can be deployed to any static hosting servi
 
 ### Requirements
 
-- HTTPS (required for Web Speech API)
-- No backend server needed
-- No API keys required
-- No external service dependencies
+- HTTPS (not required for text-based features)
+- Backend server for data persistence (Express.js + PostgreSQL)
+- OpenAI API key for ChefAI functionality
+- Environment variable: `VITE_OPENAI_API_KEY`
 
 ### Deployment Checklist
 
-1. Build the application: `npm run build`
+1. Build application: `npm run build`
 2. Upload `dist/` directory to hosting service
 3. Ensure HTTPS is enabled
-4. Test microphone permissions
-5. Test speech recognition functionality
+4. Test ChefAI recipe saving and history access
+5. Verify recipe persistence to database
+6. Test shopping list management
+7. Verify shopping history access
+8. Configure `VITE_OPENAI_API_KEY` environment variable for ChefAI functionality

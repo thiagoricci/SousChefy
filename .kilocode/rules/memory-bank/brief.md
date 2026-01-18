@@ -1,25 +1,26 @@
 ## SousChefy - Project Description
 
 **Main Objectives:**
-SousChefy is a revolutionary voice-controlled grocery shopping application designed to transform how users create and manage shopping lists. The primary goal is to provide a hands-free, intuitive experience that leverages modern speech recognition technology to simplify everyday grocery shopping tasks.
+SousChefy is a modern grocery shopping application designed to simplify how users create and manage shopping lists. The primary goal is to provide an intuitive, efficient experience with text-based input and AI-powered recipe generation to transform everyday grocery shopping tasks.
 
 **Key Features:**
 
-- **Smart Voice Recognition:** Natural language processing supporting quantities, compound items, and conversational patterns with advanced parsing for separators like "and", "also", "plus"
-- **Dual-Mode Operation:** Adding mode for voice input list creation and Shopping mode for hands-free item check-off while shopping
-- **Enhanced User Experience:** Audio celebration system, real-time transcript display, progress tracking, and shopping list history management
-- **Keyboard Shortcuts:** Quick access with 'A' (add items), 'S' (start shopping), and 'Escape' (stop action)
+- **Text-Based Shopping List:** Easy item addition with name, quantity, and unit fields
+- **Dual-Mode Operation:** Editing mode for list creation and Shopping mode for checking off items while shopping
+- **Enhanced User Experience:** Progress tracking, audio celebration system, and shopping list history management
 - **Modern Interface:** Responsive design optimized for desktop, tablet, and mobile with smooth animations and full accessibility support
-- **Recipe Management:** Manual recipe saving and organization with ingredient-to-list conversion
+- **Recipe Management:** AI-powered recipe generation, manual recipe saving, and ingredient-to-list conversion
+- **ChefAI Integration:** Conversational AI assistant for adding items, generating recipes, and managing shopping history
 
 **Technologies Used:**
 
 - **Frontend:** React 18, TypeScript, Vite
 - **Styling:** Tailwind CSS, shadcn/ui component library
 - **Icons:** Lucide React
-- **Core APIs:** Web Speech API for voice recognition, Web Audio API for sound effects
+- **Core APIs:** Web Audio API for sound effects
 - **Additional:** React Router DOM, TanStack Query, Radix UI primitives
 - **Backend:** Express.js with Prisma ORM (PostgreSQL database) for data persistence
+- **AI:** OpenAI GPT-4o-mini for ChefAI and recipe generation
 
 **Significance:**
-SousChefy demonstrates practical application of AI and voice technology in everyday life, making grocery shopping more accessible and efficient. It showcases modern web capabilities including browser-native speech recognition, responsive design patterns, and seamless user experience design. The project serves as an excellent example of how voice interfaces can enhance productivity in common daily tasks.
+SousChefy demonstrates practical application of AI technology in everyday life, making grocery shopping more accessible and efficient. It showcases modern web capabilities including AI-powered assistance, responsive design patterns, and seamless user experience design. The project serves as an excellent example of how conversational AI can enhance productivity in common daily tasks.

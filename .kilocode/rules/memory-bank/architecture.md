@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-SousChefy is a single-page React application that uses browser-native Web Speech API for voice recognition. The application follows a component-based architecture with clear separation of concerns.
+SousChefy is a single-page React application that uses text-based input for shopping list management. The application follows a component-based architecture with clear separation of concerns.
 
 ### High-Level Architecture
 
@@ -47,16 +47,12 @@ src/
 │   └── NotFound.tsx                 # 404 error page
 │
 ├── hooks/
-│   ├── useSpeechRecognition.ts      # Custom speech recognition hook
 │   ├── use-debounce.ts              # Debounce utility hook
 │   ├── use-mobile.tsx               # Mobile detection hook
 │   └── use-toast.ts                 # Toast notification hook
 │
 ├── data/
 │   └── groceryItems.ts              # Grocery item database (200+ items)
-│
-├── types/
-│   └── speech.ts                    # Speech recognition TypeScript types
 │
 ├── lib/
 │   └── utils.ts                     # Utility functions (cn helper)
@@ -68,37 +64,25 @@ src/
 
 ## Key Technical Decisions
 
-### 1. Browser-Native Speech Recognition
+### 1. Text-Based Input System
 
-- **Decision**: Use Web Speech API instead of cloud-based services
-- **Rationale**: No API keys required, privacy-focused, works offline, no external dependencies
-- **Trade-off**: Limited browser support (Chrome, Safari, Edge), no cross-browser consistency
+- **Decision**: Use text input fields for item addition
+- **Rationale**: Universal browser support, no special permissions required, works on all devices
+- **Trade-off**: Requires manual typing instead of voice input
 
 ### 2. Dual-Mode Operation
 
-- **Decision**: Separate "Adding" and "Shopping" modes
-- **Rationale**: Different speech patterns for adding vs checking off items, clearer UX
-- **Implementation**: Two separate `useSpeechRecognition` instances with different configurations
+- **Decision**: Separate "Editing" and "Shopping" modes
+- **Rationale**: Different workflows for creating lists vs checking off items, clearer UX
+- **Implementation**: State-based mode switching with `viewMode` state
 
-### 3. Debounced Transcript Processing
-
-- **Decision**: 500ms debounce on speech transcript processing
-- **Rationale**: Prevents excessive re-renders and item duplication during continuous speech
-- **Implementation**: Custom `useDebounce` hook
-
-### 4. Aggressive Microphone Cleanup
-
-- **Decision**: Multiple stop calls with timeouts up to 750ms
-- **Rationale**: Mobile browsers have unreliable speech recognition stop behavior
-- **Implementation**: `stopListening()` function with cascading timeout-based stops
-
-### 5. Grocery Database with Fuzzy Matching
+### 3. Grocery Database with Fuzzy Matching
 
 - **Decision**: Pre-defined database of 200+ items with fuzzy matching
 - **Rationale**: Ensures consistent item names, supports variations and plurals
 - **Implementation**: `groceryItems.ts` with `isValidGroceryItem()` and `findBestMatch()` functions
 
-### 6. Recipe Generation with OpenAI API
+### 4. Recipe Generation with OpenAI API
 
 - **Decision**: Use OpenAI API for recipe generation
 - **Rationale**: Enables users to generate recipes by dish name or ingredients
@@ -112,14 +96,13 @@ src/
 
 ### 1. Custom Hooks Pattern
 
-- `useSpeechRecognition`: Encapsulates Web Speech API logic
 - `useDebounce`: Provides debounced values
 - `useToast`: Manages toast notifications
 - `useIsMobile`: Detects mobile viewport
 
 ### 2. Component Composition
 
-- `GroceryApp` composes `ShoppingList`, `VoiceButton`, and UI components
+- `GroceryApp` composes `ShoppingList` and UI components
 - `ShoppingList` renders items grouped by category
 - Reusable UI components from shadcn/ui
 
@@ -133,8 +116,8 @@ src/
 ### 4. Event Handling
 
 - Keyboard shortcuts with global event listeners
-- Speech recognition callbacks
 - Button click handlers with mode transitions
+- Form submissions with Enter key support
 
 ## Component Relationships
 
@@ -157,13 +140,11 @@ App.tsx
 ### Data Flow
 
 ```
-User Speech Input
+User Text Input
     ↓
-useSpeechRecognition Hook
+handleTextInputSubmit Function
     ↓
-onResult Callback
-    ↓
-parseAndAddItems Function
+Item Validation
     ↓
 setItems State Update
     ↓
@@ -184,23 +165,19 @@ Shopping → Idle (user clicks "Stop Shopping" or all items completed)
 ### 1. Adding Items Flow
 
 ```
-handleStartAddingItems()
+User enters item name, quantity, and unit
     ↓
-addItemsRecognition.startListening()
+handleTextInputSubmit()
     ↓
-onResult callback triggered
+Validate item name (not empty, not duplicate)
     ↓
-Accumulate transcript
+Parse quantity and unit
     ↓
-Debounce (500ms)
+Find best match in grocery database
     ↓
-parseAndAddItems(transcript)
+Create new ShoppingItem
     ↓
-Extract quantities
-    ↓
-Validate against grocery database
-    ↓
-Add items to state
+Add to items state
     ↓
 Show toast notification
 ```
@@ -208,15 +185,13 @@ Show toast notification
 ### 2. Shopping Mode Flow
 
 ```
-handleStartShopping()
+User clicks "Start Shopping"
     ↓
-shoppingRecognition.startListening()
+Switch to shopping mode
     ↓
-onResult callback triggered
+Display items with checkboxes
     ↓
-checkOffItems(transcript)
-    ↓
-Match spoken words to items
+User clicks items to toggle completion
     ↓
 Update item.completed state
     ↓
@@ -225,23 +200,7 @@ Check if all items completed
 Play celebration sound if complete
 ```
 
-### 3. Microphone Stop Flow
-
-```
-handleStopAddingItems() / handleStopShopping()
-    ↓
-Clear all timeouts
-    ↓
-Set manuallyStopped flags
-    ↓
-Multiple abort() calls (immediate, 50ms, 150ms, 300ms, 500ms, 750ms)
-    ↓
-Update mode to 'idle'
-    ↓
-Clear accumulated transcript
-```
-
-### 4. Recipe Generation Flow
+### 3. Recipe Generation Flow
 
 ```
 User searches for recipe by dish name
@@ -257,7 +216,7 @@ Recipe displayed in RecipeTab
 User can view recipe details, save to collection, or add ingredients to shopping list
 ```
 
-### 5. Recipe Recommendations Flow
+### 4. Recipe Recommendations Flow
 
 ```
 User searches for recipes by ingredients
@@ -277,35 +236,45 @@ User can view recipe details, save to collection, or add ingredients to shopping
 
 ### Optimizations Implemented
 
-1. **Debounced Processing**: Prevents excessive re-renders during speech
-2. **Callback Memoization**: `useCallback` for event handlers
-3. **Computed Values**: `useMemo` for expensive calculations
-4. **Cleanup on Unmount**: Proper timeout and event listener cleanup
-5. **Aggressive Stop Mechanism**: Prevents memory leaks from hanging microphones
+1. **Callback Memoization**: `useCallback` for event handlers
+2. **Computed Values**: `useMemo` for expensive calculations
+3. **Cleanup on Unmount**: Proper timeout and event listener cleanup
 
 ### Potential Bottlenecks
 
 1. **Grocery Database Lookup**: O(n) search through 200+ items (acceptable for current scale)
-2. **Speech Recognition**: Browser-dependent performance
-3. **Large Shopping Lists**: Rendering performance with 100+ items
+2. **Large Shopping Lists**: Rendering performance with 100+ items
 
 ## Security Considerations
 
-1. **Microphone Permissions**: Requires user consent
-2. **No External APIs**: All processing happens in-browser
-3. **No Data Persistence**: Lists stored in memory only (history in localStorage)
-4. **HTTPS Required**: Speech API requires secure context
+1. **No External APIs**: All processing happens in-browser (except ChefAI OpenAI API)
+2. **No Data Persistence**: Lists stored in memory only (history in localStorage)
+3. **Database Security**: All data operations are user-specific (filtered by userId in backend)
+4. **Recipe Security**: Recipes are user-specific with ownership verification
 
 ## Browser Compatibility
 
 ### Supported Browsers
 
-- Chrome/Edge (full support)
-- Safari (partial support, different behavior)
-- Firefox (limited support)
+- **Chrome/Edge** (full support)
+- **Safari** (full support)
+- **Firefox** (full support)
+- **All modern browsers** with ES6+ support
 
 ### Mobile Considerations
 
-- iOS Safari: Different speech recognition behavior
-- Android Chrome: Generally good support
-- Requires special handling for mobile quirks
+- **iOS Safari**: Full support with responsive design
+- **Android Chrome**: Full support with responsive design
+- **All mobile browsers**: Optimized touch interactions
+
+## Architecture Summary
+
+SousChefy follows a component-based architecture with clear separation of concerns:
+
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend**: Express.js with Prisma ORM (PostgreSQL database)
+- **APIs**: RESTful APIs for lists, recipes, and authentication
+- **State Management**: Local component state with localStorage fallback
+- **ChefAI**: OpenAI integration with function calling support
+
+The system is production-ready and follows modern best practices for React applications.
