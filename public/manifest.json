@@ -1,6 +1,6 @@
 {
-  "name": "Grocerli",
-  "short_name": "Grocerli",
+  "name": "SousChefy",
+  "short_name": "SousChefy",
   "description": "Voice-controlled grocery shopping application",
   "start_url": "/",
   "display": "standalone",
@@ -22,11 +22,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
     }
   ],
   "related_applications": [

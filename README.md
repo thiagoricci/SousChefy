@@ -1,8 +1,8 @@
-# 🛒 Grocerli - Smart Grocery Shopping Assistant
+# 🛒 SousChefy - Smart Grocery Shopping Assistant
 
 A modern grocery shopping application that helps you create and manage shopping lists with ease. Add items manually, discover AI-powered recipes, and enjoy a seamless shopping experience!
 
-![Grocerli Demo](https://via.placeholder.com/800x400/4F46E5/FFFFFF?text=Grocerli+Demo)
+![SousChefy Demo](https://via.placeholder.com/800x400/4F46E5/FFFFFF?text=SousChefy+Demo)
 
 ## ✨ Key Features
 

@@ -6,15 +6,19 @@ import { RecipeDetail } from './RecipeDetail';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Edit2 } from 'lucide-react';
+import { ArrowLeft, Edit2, LogOut } from 'lucide-react';
 import { Card } from './ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn, generateId } from '@/lib/utils';
 import { isValidGroceryItem, findBestMatch } from '@/data/groceryItems';
-import { saveCurrentList, loadCurrentList, saveHistory, loadHistory, saveRecipe, loadRecipes, deleteRecipe } from '@/lib/storage';
+import { saveCurrentList, loadCurrentList, saveHistory, loadHistory, loadRecipes, deleteRecipe } from '@/lib/storage';
+import { listsApi } from '@/lib/lists-api';
+import { recipesApi } from '@/lib/recipes-api';
 import { type SavedList } from '@/types/shopping';
-import { type RecipeIngredient, type SavedRecipe } from '@/types/recipe';
+import { type RecipeIngredient, type SavedRecipe, type Recipe } from '@/types/recipe';
+import { BottomNavigation, type ViewType } from './BottomNavigation';
+import { CookingMode } from './CookingMode';
 
 // Unit options for quantity selection
 const UNIT_OPTIONS = [
@@ -53,14 +57,20 @@ export const GroceryApp: React.FC = () => {
   const [textInput, setTextInput] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
   const [itemUnit, setItemUnit] = useState<string>('none');
-  const [activeTab, setActiveTab] = useState('make-list');
+  const [activeView, setActiveView] = useState<ViewType>('home');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
   const [editUnit, setEditUnit] = useState<string>('');
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
   const { toast } = useToast();
+  const { user, logout } = useAuth();
   const completionProcessedRef = useRef(false);
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
 
   // Load current list, history, and saved recipes from localStorage on component mount
   useEffect(() => {
@@ -79,6 +89,62 @@ export const GroceryApp: React.FC = () => {
       setSavedRecipes(recipes);
     }
   }, []);
+
+  // Load recipes from database when user is authenticated
+  useEffect(() => {
+    if (user) {
+      recipesApi.getAll()
+        .then(dbRecipes => {
+          // Convert database recipes to SavedRecipe format with savedAt timestamp
+          const savedRecipesWithTimestamp: SavedRecipe[] = dbRecipes.map((dbRecipe: any) => ({
+            id: dbRecipe.id,
+            name: dbRecipe.name,
+            description: '',
+            ingredients: dbRecipe.ingredients,
+            instructions: dbRecipe.instructions,
+            servings: dbRecipe.servings,
+            prepTime: dbRecipe.prepTime?.toString(),
+            cookTime: dbRecipe.cookTime?.toString(),
+            savedAt: new Date(dbRecipe.createdAt).getTime()
+          }));
+          setSavedRecipes(savedRecipesWithTimestamp);
+        })
+        .catch(error => {
+          console.error('Failed to load recipes from database:', error);
+          // Fallback to localStorage recipes
+          const localRecipes = loadRecipes();
+          if (localRecipes && localRecipes.length > 0) {
+            setSavedRecipes(localRecipes);
+          }
+        });
+    }
+  }, [user]);
+
+  // Load lists from database when user is authenticated
+  useEffect(() => {
+    if (user) {
+      listsApi.getAll()
+        .then(dbLists => {
+          // Convert database lists to SavedList format
+          const savedListsWithTimestamp: SavedList[] = dbLists.map((dbList: any) => ({
+            id: dbList.id,
+            name: dbList.name,
+            items: dbList.items,
+            createdAt: new Date(dbList.createdAt).getTime(),
+            updatedAt: new Date(dbList.updatedAt).getTime()
+          }));
+          setHistory(savedListsWithTimestamp);
+        })
+        .catch(error => {
+          console.error('Failed to load lists from database:', error);
+          // Fallback to localStorage lists
+          const localHistory = loadHistory();
+          if (localHistory && localHistory.length > 0) {
+            setHistory(localHistory);
+          }
+        });
+    }
+  }, [user]);
 
   // Save current list to localStorage whenever items change
   useEffect(() => {
@@ -456,8 +522,8 @@ export const GroceryApp: React.FC = () => {
       return [...prevItems, ...itemsToAdd];
     });
 
-    // Switch to shopping list tab
-    setActiveTab('make-list');
+    // Switch to home view
+    setActiveView('home');
   }, [toast]);
 
   const handleToggleItem = (id: string) => {
@@ -568,9 +634,9 @@ export const GroceryApp: React.FC = () => {
       return;
     }
 
-    // Switch to shopping mode (list is already auto-saved to current storage)
+    // Switch to shopping mode (list is already auto-saved to localStorage)
     setViewMode('shopping');
-    setActiveTab('make-list');
+    setActiveView('home');
 
     toast({
       title: "Ready to Shop!",
@@ -589,18 +655,80 @@ export const GroceryApp: React.FC = () => {
     if (allCompleted && viewMode === 'shopping' && !completionProcessedRef.current) {
       completionProcessedRef.current = true;
       
-      setTimeout(() => {
+      setTimeout(async () => {
         playSuccessSound();
         
-        // Save completed list to history
-        const now = Date.now();
-        const completedList: SavedList = {
-          id: generateId(),
-          items: [...items],
-          createdAt: now,
-          updatedAt: now,
-        };
-        setHistory(prev => [completedList, ...prev.slice(0, 9)]);
+        // Save completed list to database when shopping is done
+        if (user) {
+          try {
+            const now = Date.now();
+            
+            // Get current active list
+            const activeList = await listsApi.getActive();
+            
+            if (activeList) {
+              // Deactivate active list instead of creating a new one
+              await listsApi.update(activeList.id, {
+                isActive: false,
+                items: [...items],  // Save with completion status
+                name: activeList.name  // Keep original name
+              });
+              
+              // Save to history (localStorage) with database ID
+              const completedList: SavedList = {
+                id: activeList.id,
+                items: [...items],
+                createdAt: new Date(activeList.createdAt).getTime(),
+                updatedAt: now,
+              };
+              
+              // Save to localStorage
+              setHistory(prev => [completedList, ...prev.slice(0, 9)]);
+            } else {
+              // Fallback: Create new list if no active list exists
+              const dbList = await listsApi.create({
+                name: `Shopping List - ${new Date(now).toLocaleDateString()}`,
+                items: [...items],
+                isActive: false
+              });
+              
+              const completedList: SavedList = {
+                id: dbList.id,
+                items: [...items],
+                createdAt: now,
+                updatedAt: now,
+              };
+              
+              setHistory(prev => [completedList, ...prev.slice(0, 9)]);
+            }
+          } catch (error) {
+            console.error('Failed to save list to database:', error);
+            
+            // Fallback to localStorage only
+            const now = Date.now();
+            const completedList: SavedList = {
+              id: generateId(),
+              items: [...items],
+              createdAt: now,
+              updatedAt: now,
+            };
+            
+            // Save to localStorage
+            setHistory(prev => [completedList, ...prev.slice(0, 9)]);
+          }
+        } else {
+          // Unauthenticated user - save to localStorage only
+          const now = Date.now();
+          const completedList: SavedList = {
+            id: generateId(),
+            items: [...items],
+            createdAt: now,
+            updatedAt: now,
+          };
+          
+          // Save to localStorage
+          setHistory(prev => [completedList, ...prev.slice(0, 9)]);
+        }
         
         toast({
           title: "🎉 Shopping Complete!",
@@ -622,7 +750,7 @@ export const GroceryApp: React.FC = () => {
         }, 1000);
       }, 0);
     }
-  }, [items, viewMode, toast]);
+  }, [items, viewMode, toast, user]);
 
   // Play success sound
   const playSuccessSound = () => {
@@ -669,7 +797,7 @@ export const GroceryApp: React.FC = () => {
       }));
       setItems(resetItems);
       setEditingListId(listId);
-      setActiveTab('make-list');
+      setActiveView('home');
       setViewMode('editing');
       toast({
         title: "List Loaded",
@@ -690,21 +818,89 @@ export const GroceryApp: React.FC = () => {
   };
 
   // Delete a specific list from history
-  const deleteList = (listId: string) => {
-    setHistory(prev => prev.filter(list => list.id !== listId));
+  const deleteList = useCallback(async (listId: string) => {
+    console.log('Attempting to delete list:', listId);
 
-    if (editingListId === listId) {
-      setEditingListId(null);
+    // Check if user is authenticated
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to delete lists from database.",
+        variant: "destructive",
+      });
+      setHistory(prev => prev.filter(list => list.id !== listId));
+      if (editingListId === listId) {
+        setEditingListId(null);
+      }
+      return;
     }
 
-    toast({
-      title: "List Deleted",
-      description: "Shopping list has been removed from history.",
-    });
-  };
+    try {
+      console.log('Calling listsApi.delete with listId:', listId);
+      // Try to delete from database
+      await listsApi.delete(listId);
+      console.log('Successfully deleted list from database:', listId);
+
+      // Success - update local state
+      setHistory(prev => prev.filter(list => list.id !== listId));
+
+      if (editingListId === listId) {
+        setEditingListId(null);
+      }
+
+      toast({
+        title: "List Deleted",
+        description: "Shopping list has been removed from history.",
+      });
+    } catch (error: any) {
+      console.error('Failed to delete list from database:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status
+      });
+
+      // Handle different error types
+      if (error.response?.status === 403) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to delete this list.",
+          variant: "destructive",
+        });
+      } else if (error.response?.status === 401) {
+        toast({
+          title: "Authentication Failed",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Redirect to login
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.response?.status === 404) {
+        toast({
+          title: "List Removed",
+          description: "List was already deleted from the server.",
+        });
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: `Failed to delete list from database: ${error.message || 'Unknown error'}`,
+          variant: "destructive",
+        });
+      }
+
+      // Still delete from localStorage as fallback
+      setHistory(prev => prev.filter(list => list.id !== listId));
+
+      if (editingListId === listId) {
+        setEditingListId(null);
+      }
+    }
+  }, [editingListId, toast, user]);
 
   // Handle saving a recipe
-  const handleSaveRecipe = useCallback((recipe: SavedRecipe) => {
+  const handleSaveRecipe = useCallback(async (recipe: SavedRecipe) => {
     const existingIndex = savedRecipes.findIndex(r => r.id === recipe.id);
     if (existingIndex >= 0) {
       toast({
@@ -715,18 +911,45 @@ export const GroceryApp: React.FC = () => {
       return;
     }
 
-    saveRecipe(recipe);
-    setSavedRecipes(prev => [recipe, ...prev]);
-    toast({
-      title: "Recipe Saved",
-      description: `"${recipe.name}" has been saved to your recipes.`,
-    });
+    try {
+      // Convert string time to number if present
+      const prepTime = recipe.prepTime ? parseInt(recipe.prepTime) : undefined;
+      const cookTime = recipe.cookTime ? parseInt(recipe.cookTime) : undefined;
+
+      const dbRecipe = await recipesApi.create({
+        name: recipe.name,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        servings: recipe.servings,
+        prepTime,
+        cookTime
+      });
+
+      // Create saved recipe with database ID
+      const savedRecipe: SavedRecipe = {
+        ...recipe,
+        id: dbRecipe.id, // Use database CUID ID instead of AI-generated ID
+        savedAt: Date.now()
+      };
+
+      setSavedRecipes(prev => [savedRecipe, ...prev]);
+      toast({
+        title: "Recipe Saved",
+        description: `"${recipe.name}" has been saved to your recipes.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Save Failed",
+        description: error.response?.data?.error || 'Failed to save recipe. Please try again.',
+        variant: 'destructive',
+      });
+    }
   }, [savedRecipes, toast]);
 
   // Handle viewing a saved recipe
   const handleViewRecipe = useCallback((recipe: SavedRecipe) => {
     setSelectedRecipe(recipe);
-    setActiveTab('recipes');
+    setActiveView('search');
   }, []);
 
   // Handle adding saved recipe ingredients to shopping list
@@ -739,14 +962,66 @@ export const GroceryApp: React.FC = () => {
   }, [handleAddRecipeIngredients, toast]);
 
   // Handle deleting a saved recipe
-  const handleDeleteRecipe = useCallback((recipeId: string) => {
-    deleteRecipe(recipeId);
-    setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
-    toast({
-      title: "Recipe Deleted",
-      description: "Recipe has been removed from your saved recipes.",
-    });
-  }, [toast]);
+  const handleDeleteRecipe = useCallback(async (recipeId: string) => {
+    // Check if user is authenticated
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to delete recipes from database.",
+        variant: "destructive",
+      });
+      // Still delete from localStorage
+      setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+      return;
+    }
+
+    try {
+      // Try to delete from database
+      await recipesApi.delete(recipeId);
+      // Success - update local state
+      setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+      toast({
+        title: "Recipe Deleted",
+        description: "Recipe has been removed from your saved recipes.",
+      });
+    } catch (error: any) {
+      console.error('Failed to delete recipe from database:', error);
+
+      // Handle different error types
+      if (error.response?.status === 403) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to delete this recipe. It may belong to another account.",
+          variant: "destructive",
+        });
+      } else if (error.response?.status === 401) {
+        toast({
+          title: "Authentication Failed",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Redirect to login
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.response?.status === 404) {
+        toast({
+          title: "Recipe Not Found",
+          description: "This recipe may have already been deleted.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete recipe from database. Please try again.",
+          variant: "destructive",
+        });
+      }
+
+      // Still delete from localStorage as fallback
+      setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+    }
+  }, [toast, user]);
 
   const completedCount = items.filter(item => item.completed).length;
   const progressPercent = items.length > 0 ? (completedCount / items.length) * 100 : 0;
@@ -755,140 +1030,39 @@ export const GroceryApp: React.FC = () => {
     <div className="min-h-screen bg-gradient-subtle p-2 md:p-3">
       <div className="max-w-2xl mx-auto space-y-3 md:space-y-4">
         {/* Header */}
-        <div className="text-center py-4 md:py-6">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
-            Grocerli
-          </h1>
+        <div className="flex items-center justify-between py-4 md:py-6 relative">
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center">
+              Hi {user?.name || user?.email}, welcome!
+            </h1>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
         </div>
 
-        {/* Tab Navigation */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-12 md:h-auto">
-            <TabsTrigger value="make-list" className="rounded-xl min-h-[44px] md:min-h-0 text-sm md:text-base">
-              Make a List
-            </TabsTrigger>
-            <TabsTrigger value="recipes" className="rounded-xl min-h-[44px] md:min-h-0 text-sm md:text-base">
-              Recipes
-            </TabsTrigger>
-            <TabsTrigger value="history" className="rounded-xl min-h-[44px] md:min-h-0 text-sm md:text-base">
-              History
-              {history.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                  {history.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="make-list" className="mt-0">
-            {viewMode === 'editing' ? (
-              // Editing Mode
-              <div className="space-y-4">
-                {/* Description */}
-                <div className="text-center">
-                  <p className="text-lg md:text-xl font-semibold text-muted-foreground">
-                    Make a list
-                  </p>
-                </div>
-
-                {/* Input Fields */}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Item name..."
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleTextInputSubmit();
-                      }
-                    }}
-                    className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 flex-1 [&::placeholder]:text-gray-500"
-                  />
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Qty"
-                      value={itemQuantity}
-                      onChange={(e) => setItemQuantity(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleTextInputSubmit();
-                        }
-                      }}
-                      min="0"
-                      step="0.5"
-                      className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
-                    />
-                    <Select
-                      value={itemUnit}
-                      onValueChange={setItemUnit}
-                    >
-                      <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
-                        <SelectValue placeholder="Unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UNIT_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      onClick={handleTextInputSubmit}
-                      disabled={!textInput.trim()}
-                      className="h-12 md:h-14 px-6"
-                    >
-                      Add
-                    </Button>
+        {/* Main Content Area */}
+        <div className="pb-20 md:pb-4">
+          {activeView === 'home' && (
+            <div className="space-y-4 animate-fade-in">
+              {viewMode === 'editing' ? (
+                // Editing Mode
+                <div className="space-y-4">
+                  {/* Description */}
+                  <div className="text-center">
+                    <p className="text-lg md:text-xl font-semibold text-muted-foreground">
+                      Make a list
+                    </p>
                   </div>
-                </div>
 
-                {/* Done Button */}
-                {items.length > 0 && (
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={handleDone}
-                      size="lg"
-                      className="px-8 py-3 md:py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium bg-blue-500 hover:bg-blue-600 min-h-[48px] md:min-h-0"
-                    >
-                      Start Shopping
-                    </Button>
-                  </div>
-                )}
-
-                {/* Shopping List */}
-                <ShoppingList
-                  items={items}
-                  onToggleItem={handleToggleItem}
-                  onRemoveItem={handleRemoveItem}
-                  onEditItem={handleEditItem}
-                  onCancelEdit={handleCancelEdit}
-                  editingItemId={editingItemId}
-                  editValue={editValue}
-                  editQuantity={editQuantity}
-                  editUnit={editUnit}
-                  onEditValueChange={setEditValue}
-                  onEditQuantityChange={setEditQuantity}
-                  onEditUnitChange={setEditUnit}
-                  viewMode="editing"
-                  className="animate-slide-up"
-                />
-              </div>
-            ) : (
-              // Shopping Mode
-              <div className="space-y-4">
-                {/* Shopping Mode Header */}
-                <div className="text-center">
-                  <p className="text-lg md:text-xl font-semibold text-muted-foreground">
-                    Shopping Mode
-                  </p>
-                </div>
-
-                {/* Input Fields - Allow adding items while shopping */}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 relative">
+                  {/* Input Fields */}
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
                       type="text"
                       placeholder="Item name..."
@@ -899,106 +1073,203 @@ export const GroceryApp: React.FC = () => {
                           handleTextInputSubmit();
                         }
                       }}
-                      className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
+                      className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 flex-1 [&::placeholder]:text-gray-500"
                     />
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={itemQuantity}
+                        onChange={(e) => setItemQuantity(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleTextInputSubmit();
+                          }
+                        }}
+                        min="0"
+                        step="0.5"
+                        className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
+                      />
+                      <Select
+                        value={itemUnit}
+                        onValueChange={setItemUnit}
+                      >
+                        <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNIT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={handleTextInputSubmit}
+                        disabled={!textInput.trim()}
+                        className="h-12 md:h-14 px-6"
+                      >
+                        Add
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Qty"
-                      value={itemQuantity}
-                      onChange={(e) => setItemQuantity(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleTextInputSubmit();
-                        }
-                      }}
-                      min="0"
-                      step="0.5"
-                      className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
-                    />
-                    <Select
-                      value={itemUnit}
-                      onValueChange={setItemUnit}
-                    >
-                      <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
-                        <SelectValue placeholder="Unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UNIT_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+
+                  {/* Done Button */}
+                  {items.length > 0 && (
+                    <div className="flex justify-center">
+                      <Button
+                        onClick={handleDone}
+                        size="lg"
+                        className="px-8 py-3 md:py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium bg-blue-500 hover:bg-blue-600 min-h-[48px] md:min-h-0"
+                      >
+                        Start Shopping
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Shopping List */}
+                  <ShoppingList
+                    items={items}
+                    onToggleItem={handleToggleItem}
+                    onRemoveItem={handleRemoveItem}
+                    onEditItem={handleEditItem}
+                    onCancelEdit={handleCancelEdit}
+                    editingItemId={editingItemId}
+                    editValue={editValue}
+                    editQuantity={editQuantity}
+                    editUnit={editUnit}
+                    onEditValueChange={setEditValue}
+                    onEditQuantityChange={setEditQuantity}
+                    onEditUnitChange={setEditUnit}
+                    viewMode="editing"
+                    className="animate-slide-up"
+                  />
+                </div>
+              ) : (
+                // Shopping Mode
+                <div className="space-y-4">
+                  {/* Shopping Mode Header */}
+                  <div className="text-center">
+                    <p className="text-lg md:text-xl font-semibold text-muted-foreground">
+                      Shopping Mode
+                    </p>
+                  </div>
+
+                  {/* Input Fields - Allow adding items while shopping */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        type="text"
+                        placeholder="Item name..."
+                        value={textInput}
+                        onChange={(e) => setTextInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleTextInputSubmit();
+                          }
+                        }}
+                        className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={itemQuantity}
+                        onChange={(e) => setItemQuantity(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleTextInputSubmit();
+                          }
+                        }}
+                        min="0"
+                        step="0.5"
+                        className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
+                      />
+                      <Select
+                        value={itemUnit}
+                        onValueChange={setItemUnit}
+                      >
+                        <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNIT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={handleTextInputSubmit}
+                        disabled={!textInput.trim()}
+                        className="h-12 md:h-14 px-6"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  {items.length > 0 && (
+                    <Card className="p-4 md:p-6 shadow-card rounded-xl md:rounded-2xl border-0 bg-white/80 backdrop-blur-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">
+                          Progress: {completedCount}/{items.length} items completed
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(progressPercent)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Shopping List */}
+                  <ShoppingList
+                    items={items}
+                    onToggleItem={handleToggleItem}
+                    onRemoveItem={handleRemoveItem}
+                    onEditItem={handleEditItem}
+                    onCancelEdit={handleCancelEdit}
+                    editingItemId={editingItemId}
+                    editValue={editValue}
+                    editQuantity={editQuantity}
+                    editUnit={editUnit}
+                    onEditValueChange={setEditValue}
+                    onEditQuantityChange={setEditQuantity}
+                    onEditUnitChange={setEditUnit}
+                    viewMode="shopping"
+                    className="animate-slide-up"
+                  />
+
+                  {/* Back to List Button */}
+                  <div className="flex justify-center">
                     <Button
-                      onClick={handleTextInputSubmit}
-                      disabled={!textInput.trim()}
-                      className="h-12 md:h-14 px-6"
+                      onClick={handleBackToEdit}
+                      variant="outline"
+                      size="lg"
+                      className="px-6 py-3 md:py-3 text-sm font-medium rounded-xl border-primary/20 transition-all duration-200 min-h-[48px] md:min-h-0"
                     >
-                      Add
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to List
                     </Button>
                   </div>
                 </div>
+              )}
+            </div>
+          )}
 
-                {/* Progress Bar */}
-                {items.length > 0 && (
-                  <Card className="p-4 md:p-6 shadow-card rounded-xl md:rounded-2xl border-0 bg-white/80 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">
-                        Progress: {completedCount}/{items.length} items completed
-                      </span>
-                      <span className="text-sm font-medium">
-                        {Math.round(progressPercent)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                  </Card>
-                )}
-
-                {/* Shopping List */}
-                <ShoppingList
-                  items={items}
-                  onToggleItem={handleToggleItem}
-                  onRemoveItem={handleRemoveItem}
-                  onEditItem={handleEditItem}
-                  onCancelEdit={handleCancelEdit}
-                  editingItemId={editingItemId}
-                  editValue={editValue}
-                  editQuantity={editQuantity}
-                  editUnit={editUnit}
-                  onEditValueChange={setEditValue}
-                  onEditQuantityChange={setEditQuantity}
-                  onEditUnitChange={setEditUnit}
-                  viewMode="shopping"
-                  className="animate-slide-up"
-                />
-
-                {/* Back to List Button */}
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleBackToEdit}
-                    variant="outline"
-                    size="lg"
-                    className="px-6 py-3 md:py-3 text-sm font-medium rounded-xl border-primary/20 transition-all duration-200 min-h-[48px] md:min-h-0"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to List
-                  </Button>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="recipes" className="mt-0">
-            {/* Recipe Tab */}
-            <div className="space-y-4">
+          {activeView === 'search' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Recipe Tab */}
               <div className="text-center">
                 <p className="text-lg md:text-xl font-semibold text-muted-foreground">
                   AI-Powered Recipes
@@ -1020,23 +1291,51 @@ export const GroceryApp: React.FC = () => {
                 />
               )}
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="history" className="mt-0">
-            {/* History Tab */}
-            <HistoryTab
-              history={history}
-              savedRecipes={savedRecipes}
-              onLoadList={loadFromHistory}
-              onClearHistory={clearHistory}
-              onDeleteList={deleteList}
-              onViewRecipe={handleViewRecipe}
-              onAddRecipeToShoppingList={handleAddRecipeToShoppingList}
-              onDeleteRecipe={handleDeleteRecipe}
-            />
-          </TabsContent>
-        </Tabs>
+          {activeView === 'cooking' && (
+            <div className="animate-fade-in">
+              <CookingMode
+                recipes={savedRecipes}
+                onBack={() => {
+                  setActiveView('home');
+                }}
+                onComplete={() => {
+                  toast({
+                    title: "🎉 Recipe Complete!",
+                    description: "You've successfully completed cooking this recipe.",
+                  });
+                  setActiveView('home');
+                }}
+              />
+            </div>
+          )}
+
+          {activeView === 'favorites' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* History Tab */}
+              <HistoryTab
+                history={history}
+                savedRecipes={savedRecipes}
+                onLoadList={loadFromHistory}
+                onClearHistory={clearHistory}
+                onDeleteList={deleteList}
+                onViewRecipe={handleViewRecipe}
+                onAddRecipeToShoppingList={handleAddRecipeToShoppingList}
+                onDeleteRecipe={handleDeleteRecipe}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Navigation - Mobile Only */}
+        <BottomNavigation
+          activeView={activeView}
+          onViewChange={setActiveView}
+          favoritesCount={history.length}
+        />
       </div>
+
     </div>
   );
 };

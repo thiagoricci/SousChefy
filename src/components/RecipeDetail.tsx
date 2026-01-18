@@ -37,7 +37,14 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({
           <div className="space-y-4 flex-1">
             <h2 className="text-2xl font-bold">{recipe.name}</h2>
             <p className="text-muted-foreground">{recipe.description}</p>
-            
+
+            {recipe.source && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                <ChefHat className="w-4 h-4" />
+                <span>Source: {recipe.source}</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-4 text-sm">
               {recipe.prepTime && (
                 <div className="flex items-center gap-2 text-muted-foreground">

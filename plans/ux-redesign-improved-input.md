@@ -2,7 +2,7 @@
 
 ## Overview
 
-Redesign Voice Shopper UI to improve user experience with simplified input flow and clearer shopping mode separation.
+Redesign SousChefy UI to improve user experience with simplified input flow and clearer shopping mode separation.
 
 ## Current Issues
 
@@ -16,7 +16,7 @@ Redesign Voice Shopper UI to improve user experience with simplified input flow 
 
 ### Header
 
-- **Simplified**: Only "Voice Shopper" text centered
+- **Simplified**: Only "SousChefy" text centered
 - Remove: Instructions button and spacer elements
 
 ### Tab Structure
@@ -30,7 +30,7 @@ Two main tabs:
 
 ```
 ┌─────────────────────────────────────────┐
-│          Voice Shopper                │
+│          SousChefy                │
 ├─────────────────────────────────────────┤
 │                                         │
 │           Make a list                   │
@@ -72,7 +72,7 @@ Two main tabs:
 
 ```
 ┌─────────────────────────────────────────┐
-│          Voice Shopper                │
+│          SousChefy                │
 ├─────────────────────────────────────────┤
 │                                         │
 │         Shopping Mode                    │
@@ -148,7 +148,7 @@ graph TD
 
 #### Modify
 
-- Header: Only show "Voice Shopper" centered
+- Header: Only show "SousChefy" centered
 - Tab structure: "Make a List" and "History"
 - Voice recognition: Triggered by inline mic icon
 - ShoppingList: Support click-to-cross-off in shopping mode

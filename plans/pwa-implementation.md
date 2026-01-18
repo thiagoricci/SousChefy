@@ -1,10 +1,10 @@
-# PWA Implementation Plan for Voice Shopper
+# PWA Implementation Plan for SousChefy
 
 ## Architecture Overview
 
 ```mermaid
 graph TD
-    A[Voice Shopper React App] --> B[Vite PWA Plugin]
+    A[SousChefy React App] --> B[Vite PWA Plugin]
     B --> C[Web App Manifest]
     B --> D[Service Worker]
     C --> E[PWA Icons]
@@ -39,8 +39,8 @@ plugins: [
     registerType: "autoUpdate",
     includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
     manifest: {
-      name: "Voice Shopper",
-      short_name: "VoiceShopper",
+      name: "SousChefy",
+      short_name: "SousChefy",
       description: "Voice-controlled grocery shopping application",
       theme_color: "#ffffff",
       background_color: "#ffffff",
@@ -88,8 +88,8 @@ plugins: [
 
 ```json
 {
-  "name": "Voice Shopper",
-  "short_name": "VoiceShopper",
+  "name": "SousChefy",
+  "short_name": "SousChefy",
   "description": "Voice-controlled grocery shopping application",
   "start_url": "/",
   "display": "standalone",

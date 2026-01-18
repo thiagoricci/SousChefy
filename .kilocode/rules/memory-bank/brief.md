@@ -1,7 +1,7 @@
-## Voice Shopper - Project Description
+## SousChefy - Project Description
 
 **Main Objectives:**
-Voice Shopper is a revolutionary voice-controlled grocery shopping application designed to transform how users create and manage shopping lists. The primary goal is to provide a hands-free, intuitive experience that leverages modern speech recognition technology to simplify everyday grocery shopping tasks.
+SousChefy is a revolutionary voice-controlled grocery shopping application designed to transform how users create and manage shopping lists. The primary goal is to provide a hands-free, intuitive experience that leverages modern speech recognition technology to simplify everyday grocery shopping tasks.
 
 **Key Features:**
 
@@ -10,6 +10,7 @@ Voice Shopper is a revolutionary voice-controlled grocery shopping application d
 - **Enhanced User Experience:** Audio celebration system, real-time transcript display, progress tracking, and shopping list history management
 - **Keyboard Shortcuts:** Quick access with 'A' (add items), 'S' (start shopping), and 'Escape' (stop action)
 - **Modern Interface:** Responsive design optimized for desktop, tablet, and mobile with smooth animations and full accessibility support
+- **Recipe Management:** Manual recipe saving and organization with ingredient-to-list conversion
 
 **Technologies Used:**
 
@@ -18,6 +19,7 @@ Voice Shopper is a revolutionary voice-controlled grocery shopping application d
 - **Icons:** Lucide React
 - **Core APIs:** Web Speech API for voice recognition, Web Audio API for sound effects
 - **Additional:** React Router DOM, TanStack Query, Radix UI primitives
+- **Backend:** Express.js with Prisma ORM (PostgreSQL database) for data persistence
 
 **Significance:**
-Voice Shopper demonstrates practical application of AI and voice technology in everyday life, making grocery shopping more accessible and efficient. It showcases modern web capabilities including browser-native speech recognition, responsive design patterns, and seamless user experience design. The project serves as an excellent example of how voice interfaces can enhance productivity in common daily tasks.
+SousChefy demonstrates practical application of AI and voice technology in everyday life, making grocery shopping more accessible and efficient. It showcases modern web capabilities including browser-native speech recognition, responsive design patterns, and seamless user experience design. The project serves as an excellent example of how voice interfaces can enhance productivity in common daily tasks.

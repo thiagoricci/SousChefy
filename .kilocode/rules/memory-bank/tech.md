@@ -1,4 +1,4 @@
-# Voice Shopper - Technical Documentation
+# SousChefy - Technical Documentation
 
 ## Technologies Used
 
@@ -25,6 +25,7 @@
 - **class-variance-authority 0.7.1**: Variant-based styling
 - **clsx 2.1.1**: Conditional className utility
 - **tailwind-merge 2.6.0**: Tailwind className merging
+- **Custom Chat Components**: ChatBubble (green floating button at top-right) and ChatPanel (inline collapsible chat interface)
 
 ### Routing & State Management
 
@@ -61,6 +62,26 @@
 
 - **Web Speech API**: Browser-native speech recognition
 - **Web Audio API**: Audio generation for celebration sounds
+- **OpenAI API**: GPT-4o-mini model for recipe generation
+
+### AI Integration
+
+- **OpenAI API**: GPT-4o-mini model for ChefAI
+  - Function calling support for actions (add/remove items, save recipes, show recipes)
+  - Streaming responses for real-time feedback
+  - Context-aware conversations with shopping list, recipes, and history
+- **Environment Variables**: `VITE_OPENAI_API_KEY` required for ChefAI functionality
+
+### Backend Integration
+
+- **Express.js**: RESTful API server for data persistence
+- **Prisma ORM**: Database ORM for PostgreSQL
+- **PostgreSQL**: Relational database for storing lists, recipes, and user data
+- **Authentication**: JWT-based authentication system
+- **API Endpoints**:
+  - `/api/lists`: Shopping list CRUD operations
+  - `/api/recipes`: Recipe CRUD operations
+  - `/api/auth`: User authentication and session management
 
 ## Development Setup
 
@@ -203,7 +224,9 @@ All dependencies listed in package.json under "devDependencies" are only require
 
 ## Environment Variables
 
-No environment variables are currently required. The application runs entirely in the browser with no backend dependencies.
+- **VITE_OPENAI_API_KEY**: Required for ChefAI functionality (OpenAI GPT-4o-mini API key)
+- The application runs primarily in the browser with ChefAI requiring OpenAI API access
+- Backend API endpoints are configured in `src/lib/api.ts` and related API files
 
 ## Deployment
 
@@ -228,14 +251,19 @@ The application is a static site and can be deployed to any static hosting servi
 ### Requirements
 
 - HTTPS (required for Web Speech API)
-- No backend server needed
-- No API keys required
-- No external service dependencies
+- Backend server for data persistence (Express.js + PostgreSQL)
+- OpenAI API key for ChefAI functionality
+- Environment variable: `VITE_OPENAI_API_KEY`
 
 ### Deployment Checklist
 
-1. Build the application: `npm run build`
+1. Build application: `npm run build`
 2. Upload `dist/` directory to hosting service
 3. Ensure HTTPS is enabled
 4. Test microphone permissions
 5. Test speech recognition functionality
+6. Test ChefAI recipe saving and history access
+7. Verify recipe persistence to database
+8. Test shopping list management
+9. Verify shopping history access
+10. Configure `VITE_OPENAI_API_KEY` environment variable for ChefAI functionality

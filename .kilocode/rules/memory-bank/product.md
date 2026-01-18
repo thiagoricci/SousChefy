@@ -1,8 +1,8 @@
-# Voice Shopper - Product Documentation
+# SousChefy - Product Documentation
 
 ## Why This Project Exists
 
-Voice Shopper addresses a common everyday problem: creating and managing shopping lists while keeping your hands free. Traditional shopping list apps require manual typing or tapping, which can be inconvenient when your hands are full or when you're multitasking. By leveraging modern browser-native speech recognition, Voice Shopper transforms the shopping list experience into a seamless, voice-controlled workflow.
+SousChefy addresses a common everyday problem: creating and managing shopping lists while keeping your hands free. Traditional shopping list apps require manual typing or tapping, which can be inconvenient when your hands are full or when you're multitasking. By leveraging modern browser-native speech recognition, SousChefy transforms the shopping list experience into a seamless, voice-controlled workflow.
 
 ## Problems It Solves
 
@@ -48,6 +48,18 @@ Voice Shopper addresses a common everyday problem: creating and managing shoppin
 - **Progress Tracking**: Shows completed count and remaining items
 - **History Management**: Save and reload previous shopping lists (up to 10 lists)
 - **Manual Controls**: Users can also manually toggle items or remove them
+
+### ChefAI Features
+
+- **Voice and Text Input**: Users can interact with ChefAI using either voice or text input
+- **Shopping List Management**: ChefAI can add or remove items from the shopping list
+- **Recipe Generation**: ChefAI can generate recipes based on ingredients or dish names
+- **Recipe Saving**: Users can ask ChefAI to save recipes to their collection
+- **Recipe Suggestions**: ChefAI can suggest recipe ideas when users ask "What can I cook?"
+- **Automatic Tab Switching**: When ChefAI generates recipes, the app automatically switches to the Recipe tab
+- **Streaming Responses**: Real-time streaming of ChefAI responses for immediate feedback
+- **Shopping History Access**: ChefAI can reference past shopping lists for personalized recommendations
+- **External Recipe Display**: Recipes from ChefAI are displayed in the Recipe tab with clear source indicators
 
 ## User Experience Goals
 

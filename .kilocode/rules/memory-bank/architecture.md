@@ -1,8 +1,8 @@
-# Voice Shopper - Architecture
+# SousChefy - Architecture
 
 ## System Architecture
 
-Voice Shopper is a single-page React application that uses browser-native Web Speech API for voice recognition. The application follows a component-based architecture with clear separation of concerns.
+SousChefy is a single-page React application that uses browser-native Web Speech API for voice recognition. The application follows a component-based architecture with clear separation of concerns.
 
 ### High-Level Architecture
 
@@ -38,7 +38,6 @@ src/
 ├── components/
 │   ├── GroceryApp.tsx               # Main grocery shopping component
 │   ├── ShoppingList.tsx             # Shopping list display component
-│   ├── VoiceButton.tsx              # Reusable voice button component
 │   └── ui/                          # shadcn/ui components (40+ components)
 │
 ├── pages/
@@ -99,6 +98,16 @@ src/
 - **Rationale**: Ensures consistent item names, supports variations and plurals
 - **Implementation**: `groceryItems.ts` with `isValidGroceryItem()` and `findBestMatch()` functions
 
+### 6. Recipe Generation with OpenAI API
+
+- **Decision**: Use OpenAI API for recipe generation
+- **Rationale**: Enables users to generate recipes by dish name or ingredients
+- **Implementation**: `generateRecipeByDish` and `recommendRecipesByIngredients` functions
+- **Features Supported**:
+  - Generate complete recipes by dish name
+  - Recommend recipes based on available ingredients
+  - Returns recipes with ingredients, instructions, prep time, cook time, servings, and difficulty
+
 ## Design Patterns
 
 ### 1. Custom Hooks Pattern
@@ -134,9 +143,14 @@ src/
 ```
 App.tsx
 └── GroceryApp.tsx
-    ├── VoiceButton.tsx (not currently used, inline button instead)
     ├── ShoppingList.tsx
     │   └── ShoppingItem (rendered inline)
+    ├── RecipeTab.tsx
+    │   ├── Recipe generation by dish name
+    │   └── Recipe recommendations by ingredients
+    ├── RecipeDetail.tsx
+    ├── HistoryTab.tsx
+    ├── CookingMode.tsx
     └── UI Components (Button, Card, etc.)
 ```
 
@@ -225,6 +239,38 @@ Multiple abort() calls (immediate, 50ms, 150ms, 300ms, 500ms, 750ms)
 Update mode to 'idle'
     ↓
 Clear accumulated transcript
+```
+
+### 4. Recipe Generation Flow
+
+```
+User searches for recipe by dish name
+    ↓
+generateRecipeByDish() called with dish name
+    ↓
+OpenAI API request sent
+    ↓
+Complete recipe returned with ingredients, instructions, timing
+    ↓
+Recipe displayed in RecipeTab
+    ↓
+User can view recipe details, save to collection, or add ingredients to shopping list
+```
+
+### 5. Recipe Recommendations Flow
+
+```
+User searches for recipes by ingredients
+    ↓
+recommendRecipesByIngredients() called with ingredient list
+    ↓
+OpenAI API request sent
+    ↓
+5 recipe options returned with details
+    ↓
+Recipes displayed in RecipeTab
+    ↓
+User can view recipe details, save to collection, or add ingredients to shopping list
 ```
 
 ## Performance Considerations

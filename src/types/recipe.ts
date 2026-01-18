@@ -8,6 +8,8 @@ export interface Recipe {
   cookTime?: string;
   servings?: number;
   difficulty?: string;
+  source?: string;
+  url?: string;
 }
 
 export interface RecipeIngredient {

@@ -15,7 +15,11 @@ export interface RecipeTabProps {
   isRecipeSaved?: (recipeId: string) => boolean;
 }
 
-export const RecipeTab: React.FC<RecipeTabProps> = ({ onAddIngredients, onSaveRecipe, isRecipeSaved }) => {
+export const RecipeTab: React.FC<RecipeTabProps> = ({
+  onAddIngredients,
+  onSaveRecipe,
+  isRecipeSaved
+}) => {
   const [searchMode, setSearchMode] = useState<'dish' | 'ingredients'>('dish');
   const [searchQuery, setSearchQuery] = useState('');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -37,7 +41,7 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({ onAddIngredients, onSaveRe
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-
+  
     setIsLoading(true);
     setError(null);
     setRecipes([]);
@@ -45,8 +49,8 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({ onAddIngredients, onSaveRe
 
     try {
       if (searchMode === 'dish') {
-        const recipe = await generateRecipeByDish(searchQuery);
-        setRecipes([recipe]);
+        const recipes = await generateRecipeByDish(searchQuery);
+        setRecipes(recipes);
       } else {
         const ingredients = searchQuery.split(',').map(i => i.trim()).filter(Boolean);
         const results = await recommendRecipesByIngredients(ingredients);
@@ -197,6 +201,12 @@ const RecipeCard: React.FC<{
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <h4 className="text-lg font-semibold">{recipe.name}</h4>
+          {recipe.source && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+              <ChefHat className="w-3 h-3" />
+              <span>{recipe.source}</span>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground line-clamp-2">
             {recipe.description}
           </p>

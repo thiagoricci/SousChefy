@@ -1,8 +1,8 @@
-# PWA Implementation Summary - Voice Shopper
+# PWA Implementation Summary - SousChefy
 
 ## Implementation Status: ✅ COMPLETE
 
-The Voice Shopper application has been successfully converted into a Progressive Web App (PWA) with full support for iOS and Android splash screens.
+The SousChefy application has been successfully converted into a Progressive Web App (PWA) with full support for iOS and Android splash screens.
 
 ---
 
@@ -50,7 +50,7 @@ The Vite PWA plugin is configured with:
 
 Contains:
 
-- App name: "Voice Shopper" / "VoiceShopper"
+- App name: "SousChefy" / "SousChefy"
 - Description: "Voice-controlled grocery shopping application"
 - Display mode: standalone
 - Theme color: #ffffff
@@ -298,4 +298,4 @@ The Web Speech API requires an internet connection to work, even in PWA mode. Th
 - Offline caching enabled
 - Ready for deployment to production
 
-The Voice Shopper app is now a fully functional PWA that can be installed on desktop and mobile devices, with proper splash screens for iOS and Android.
+The SousChefy app is now a fully functional PWA that can be installed on desktop and mobile devices, with proper splash screens for iOS and Android.

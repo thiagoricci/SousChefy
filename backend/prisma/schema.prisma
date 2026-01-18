@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lists         List[]
+  recipes       Recipe[]
+  preferences   UserPreferences?
+  sharedLists   SharedList[] @relation("SharedBy")
+  receivedLists SharedList[] @relation("SharedWith")
+}
+
+model List {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  items     Json     // ShoppingItem[]
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sharedLists  SharedList[] @relation("ListSharedLists")
+
+  @@index([userId])
+  @@index([userId, isActive])
+}
+
+model Recipe {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  ingredients  Json     // RecipeIngredient[]
+  instructions String[]
+  servings     Int?
+  prepTime     Int?     // minutes
+  cookTime     Int?     // minutes
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserPreferences {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                String   @default("light")
+  language             String   @default("en")
+  notificationsEnabled Boolean  @default(true)
+  autoSyncEnabled      Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model SharedList {
+  id          String   @id @default(cuid())
+  listId      String
+  list        List     @relation("ListSharedLists", fields: [listId], references: [id], onDelete: Cascade)
+  sharedById  String
+  sharedBy    User     @relation("SharedBy", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWithId String
+  sharedWith  User     @relation("SharedWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
+  permission  String   @default("view") // "view" | "edit"
+  createdAt   DateTime @default(now())
+
+  @@unique([listId, sharedWithId])
+  @@index([sharedById])
+  @@index([sharedWithId])
+}
