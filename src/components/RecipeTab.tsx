@@ -25,6 +25,7 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
@@ -43,18 +44,21 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({
     if (!searchQuery.trim()) return;
   
     setIsLoading(true);
+    setIsStreaming(true);
     setError(null);
     setRecipes([]);
     setSelectedRecipe(null);
 
     try {
       if (searchMode === 'dish') {
-        const recipes = await generateRecipeByDish(searchQuery);
-        setRecipes(recipes);
+        await generateRecipeByDish(searchQuery, (newRecipes) => {
+          setRecipes(newRecipes);
+        });
       } else {
         const ingredients = searchQuery.split(',').map(i => i.trim()).filter(Boolean);
-        const results = await recommendRecipesByIngredients(ingredients);
-        setRecipes(results);
+        await recommendRecipesByIngredients(ingredients, (newRecipes) => {
+          setRecipes(newRecipes);
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate recipes');
@@ -65,6 +69,7 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({
       });
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
     }
   };
 
@@ -152,7 +157,7 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({
         {isLoading ? (
           <>
             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Generating...
+            {isStreaming ? 'Loading recipes...' : 'Generating...'}
           </>
         ) : (
           'Find Recipes'
@@ -171,6 +176,11 @@ export const RecipeTab: React.FC<RecipeTabProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">
             {recipes.length} Recipe{recipes.length > 1 ? 's' : ''} Found
+            {isStreaming && (
+              <span className="text-muted-foreground text-sm ml-2">
+                (Loading more...)
+              </span>
+            )}
           </h3>
           {recipes.map((recipe, index) => (
             <RecipeCard
@@ -201,12 +211,6 @@ const RecipeCard: React.FC<{
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <h4 className="text-lg font-semibold">{recipe.name}</h4>
-          {recipe.source && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <ChefHat className="w-3 h-3" />
-              <span>{recipe.source}</span>
-            </div>
-          )}
           <p className="text-sm text-muted-foreground line-clamp-2">
             {recipe.description}
           </p>

@@ -29,10 +29,6 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login({ email, password })
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully logged in.',
-      })
       navigate(from, { replace: true })
     } catch (error: any) {
       toast({

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { ArrowLeft, CheckCircle2, Circle, ChevronRight, ChevronLeft, Clock, UtensilsCrossed } from 'lucide-react';
@@ -31,6 +31,7 @@ export const CookingMode: React.FC<CookingModeProps> = ({
   });
 
   const [showTimer, setShowTimer] = useState(false);
+  const completionProcessedRef = useRef(false);
 
   // Select a recipe to cook
   const handleSelectRecipe = useCallback((recipe: SavedRecipe) => {
@@ -39,6 +40,7 @@ export const CookingMode: React.FC<CookingModeProps> = ({
       currentStep: 0,
       completedSteps: [],
     });
+    completionProcessedRef.current = false;
   }, []);
 
   // Go to next step
@@ -51,8 +53,12 @@ export const CookingMode: React.FC<CookingModeProps> = ({
 
       // Check if all steps are complete
       if (nextStep >= cookingState.recipe!.instructions.length) {
-        onComplete();
-        return prev;
+        // Let useEffect handle completion - don't call onComplete() here
+        return {
+          ...prev,
+          currentStep: nextStep,
+          completedSteps: newCompletedSteps,
+        };
       }
 
       return {
@@ -61,7 +67,7 @@ export const CookingMode: React.FC<CookingModeProps> = ({
         completedSteps: newCompletedSteps,
       };
     });
-  }, [cookingState.recipe, onComplete]);
+  }, [cookingState.recipe]);
 
   // Go to previous step
   const handlePreviousStep = useCallback(() => {
@@ -98,10 +104,11 @@ export const CookingMode: React.FC<CookingModeProps> = ({
 
       // Auto-advance if this is the last step
       if (nextStep >= cookingState.recipe!.instructions.length) {
-        onComplete();
+        // Let useEffect handle completion - don't call onComplete() here
         return {
           ...prev,
           completedSteps: newCompletedSteps,
+          currentStep: nextStep,
         };
       }
 
@@ -111,7 +118,23 @@ export const CookingMode: React.FC<CookingModeProps> = ({
         currentStep: nextStep,
       };
     });
-  }, [cookingState.recipe, onComplete]);
+  }, [cookingState.recipe]);
+
+  // Detect when all steps are complete and call onComplete
+  useEffect(() => {
+    const allStepsCompleted = cookingState.recipe &&
+      cookingState.completedSteps.length === cookingState.recipe.instructions.length;
+
+    if (allStepsCompleted && !completionProcessedRef.current) {
+      completionProcessedRef.current = true;
+      onComplete();
+    }
+  }, [cookingState.completedSteps, cookingState.recipe, onComplete]);
+
+  // Reset completion flag when recipe changes
+  useEffect(() => {
+    completionProcessedRef.current = false;
+  }, [cookingState.recipe]);
 
   // Calculate progress
   const progress = cookingState.recipe

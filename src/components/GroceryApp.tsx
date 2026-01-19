@@ -5,7 +5,6 @@ import { RecipeTab } from './RecipeTab';
 import { RecipeDetail } from './RecipeDetail';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowLeft, Edit2, LogOut } from 'lucide-react';
 import { Card } from './ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -20,31 +19,6 @@ import { type RecipeIngredient, type SavedRecipe, type Recipe } from '@/types/re
 import { BottomNavigation, type ViewType } from './BottomNavigation';
 import { CookingMode } from './CookingMode';
 
-// Unit options for quantity selection
-const UNIT_OPTIONS = [
-  { value: 'none', label: 'Unit' },
-  { value: 'whole', label: 'Whole' },
-  { value: 'lbs', label: 'Pounds (lbs)' },
-  { value: 'oz', label: 'Ounces (oz)' },
-  { value: 'kg', label: 'Kilograms (kg)' },
-  { value: 'g', label: 'Grams (g)' },
-  { value: 'pkg', label: 'Package (pkg)' },
-  { value: 'pcs', label: 'Pieces (pcs)' },
-  { value: 'cups', label: 'Cups' },
-  { value: 'tbsp', label: 'Tablespoons' },
-  { value: 'tsp', label: 'Teaspoons' },
-  { value: 'ml', label: 'Milliliters (ml)' },
-  { value: 'l', label: 'Liters (l)' },
-  { value: 'dozen', label: 'Dozen' },
-  { value: 'large', label: 'Large' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'small', label: 'Small' },
-  { value: 'cloves', label: 'Cloves' },
-  { value: 'piece', label: 'Piece' },
-  { value: 'garnish', label: 'Garnish' },
-  { value: 'serving', label: 'Serving' },
-];
-
 type ViewMode = 'editing' | 'shopping';
 
 export const GroceryApp: React.FC = () => {
@@ -56,12 +30,10 @@ export const GroceryApp: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
-  const [itemUnit, setItemUnit] = useState<string>('none');
   const [activeView, setActiveView] = useState<ViewType>('home');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
-  const [editUnit, setEditUnit] = useState<string>('');
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
   const { toast } = useToast();
   const { user, logout } = useAuth();
@@ -413,7 +385,6 @@ export const GroceryApp: React.FC = () => {
   const handleTextInputSubmit = useCallback(() => {
     const itemName = textInput.trim();
     const qtyValue = itemQuantity.trim();
-    const unitValue = itemUnit.trim();
     
     if (!itemName) return;
     
@@ -435,17 +406,33 @@ export const GroceryApp: React.FC = () => {
       return;
     }
     
-    // Convert quantity to number if provided
+    // Parse quantity and unit from free text input
     let numericQuantity: number | undefined = undefined;
+    let finalUnit: string | undefined = undefined;
+    
     if (qtyValue) {
-      const parsed = parseFloat(qtyValue);
-      if (!isNaN(parsed)) {
-        numericQuantity = parsed;
+      const quantityPatterns = [
+        /^(\d+(?:\.\d+)?)\s*([a-zA-Z]*)$/,
+        /^(one|two|three|four|five|six|seven|eight|nine|ten)$/i,
+      ];
+      
+      for (const pattern of quantityPatterns) {
+        const match = qtyValue.match(pattern);
+        if (match) {
+          if (pattern === quantityPatterns[0]) {
+            numericQuantity = parseFloat(match[1]);
+            finalUnit = match[2] || undefined;
+          } else if (pattern === quantityPatterns[1]) {
+            const wordToNumber: Record<string, number> = {
+              'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+              'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+            };
+            numericQuantity = wordToNumber[match[1].toLowerCase()];
+          }
+          break;
+        }
       }
     }
-    
-    // Handle unit (empty string or "none" means undefined)
-    const finalUnit = unitValue && unitValue !== 'none' ? unitValue : undefined;
     
     // Create new item
     const newItem: ShoppingItem = {
@@ -462,16 +449,15 @@ export const GroceryApp: React.FC = () => {
     // Show success toast
     toast({
       title: "Item Added",
-      description: numericQuantity
-        ? `${numericQuantity}${finalUnit ? ` ${finalUnit} ` : ' '}${displayName}`
+      description: qtyValue
+        ? `${qtyValue} ${displayName}`
         : displayName,
     });
     
     // Clear inputs
     setTextInput('');
     setItemQuantity('');
-    setItemUnit('none');
-  }, [textInput, itemQuantity, itemUnit, items, toast]);
+  }, [textInput, itemQuantity, items, toast]);
 
   // Handler for adding recipe ingredients to shopping list
   const handleAddRecipeIngredients = useCallback((ingredients: RecipeIngredient[]) => {
@@ -547,7 +533,6 @@ export const GroceryApp: React.FC = () => {
       setEditingItemId(id);
       setEditValue(newName);
       setEditQuantity(newQuantity || '');
-      setEditUnit(newUnit || 'none');
       return;
     }
 
@@ -579,17 +564,33 @@ export const GroceryApp: React.FC = () => {
       return;
     }
 
-    // Parse quantity
+    // Parse quantity and unit from free text input
     let numericQuantity: number | undefined = undefined;
+    let finalUnit: string | undefined = undefined;
+    
     if (newQuantity && newQuantity.trim()) {
-      const parsed = parseFloat(newQuantity.trim());
-      if (!isNaN(parsed)) {
-        numericQuantity = parsed;
+      const quantityPatterns = [
+        /^(\d+(?:\.\d+)?)\s*([a-zA-Z]*)$/,
+        /^(one|two|three|four|five|six|seven|eight|nine|ten)$/i,
+      ];
+      
+      for (const pattern of quantityPatterns) {
+        const match = newQuantity.trim().match(pattern);
+        if (match) {
+          if (pattern === quantityPatterns[0]) {
+            numericQuantity = parseFloat(match[1]);
+            finalUnit = match[2] || undefined;
+          } else if (pattern === quantityPatterns[1]) {
+            const wordToNumber: Record<string, number> = {
+              'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+              'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+            };
+            numericQuantity = wordToNumber[match[1].toLowerCase()];
+          }
+          break;
+        }
       }
     }
-
-    // Handle unit (empty string or "none" means undefined)
-    const finalUnit = newUnit && newUnit.trim() && newUnit !== 'none' ? newUnit.trim() : undefined;
 
     // Update item
     setItems(prev => prev.map(item =>
@@ -602,7 +603,6 @@ export const GroceryApp: React.FC = () => {
     setEditingItemId(null);
     setEditValue('');
     setEditQuantity('');
-    setEditUnit('');
 
     toast({
       title: "Item Updated",
@@ -615,7 +615,6 @@ export const GroceryApp: React.FC = () => {
     setEditingItemId(null);
     setEditValue('');
     setEditQuantity('');
-    setEditUnit('none');
   }, []);
 
   const handleClearList = () => {
@@ -1062,7 +1061,19 @@ export const GroceryApp: React.FC = () => {
                   </div>
 
                   {/* Input Fields */}
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-row gap-2 justify-center">
+                    <Input
+                      type="text"
+                      placeholder="Qty"
+                      value={itemQuantity}
+                      onChange={(e) => setItemQuantity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTextInputSubmit();
+                        }
+                      }}
+                      className="h-10 md:h-12 w-24 md:w-28 text-sm bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500 shrink-0"
+                    />
                     <Input
                       type="text"
                       placeholder="Item name..."
@@ -1073,46 +1084,15 @@ export const GroceryApp: React.FC = () => {
                           handleTextInputSubmit();
                         }
                       }}
-                      className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 flex-1 [&::placeholder]:text-gray-500"
+                      className="h-10 md:h-12 text-sm bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 flex-[0.6] min-w-0 [&::placeholder]:text-gray-500"
                     />
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Qty"
-                        value={itemQuantity}
-                        onChange={(e) => setItemQuantity(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleTextInputSubmit();
-                          }
-                        }}
-                        min="0"
-                        step="0.5"
-                        className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
-                      />
-                      <Select
-                        value={itemUnit}
-                        onValueChange={setItemUnit}
-                      >
-                        <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {UNIT_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        onClick={handleTextInputSubmit}
-                        disabled={!textInput.trim()}
-                        className="h-12 md:h-14 px-6"
-                      >
-                        Add
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={handleTextInputSubmit}
+                      disabled={!textInput.trim()}
+                      className="h-10 md:h-12 px-3 md:px-6 text-sm shrink-0"
+                    >
+                      Add
+                    </Button>
                   </div>
 
                   {/* Done Button */}
@@ -1138,10 +1118,8 @@ export const GroceryApp: React.FC = () => {
                     editingItemId={editingItemId}
                     editValue={editValue}
                     editQuantity={editQuantity}
-                    editUnit={editUnit}
                     onEditValueChange={setEditValue}
                     onEditQuantityChange={setEditQuantity}
-                    onEditUnitChange={setEditUnit}
                     viewMode="editing"
                     className="animate-slide-up"
                   />
@@ -1157,59 +1135,38 @@ export const GroceryApp: React.FC = () => {
                   </div>
 
                   {/* Input Fields - Allow adding items while shopping */}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="flex-1 relative">
-                      <Input
-                        type="text"
-                        placeholder="Item name..."
-                        value={textInput}
-                        onChange={(e) => setTextInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleTextInputSubmit();
-                          }
-                        }}
-                        className="h-12 md:h-14 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Qty"
-                        value={itemQuantity}
-                        onChange={(e) => setItemQuantity(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleTextInputSubmit();
-                          }
-                        }}
-                        min="0"
-                        step="0.5"
-                        className="h-12 md:h-14 w-24 text-base bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500"
-                      />
-                      <Select
-                        value={itemUnit}
-                        onValueChange={setItemUnit}
-                      >
-                        <SelectTrigger className="h-12 md:h-14 w-36 bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {UNIT_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        onClick={handleTextInputSubmit}
-                        disabled={!textInput.trim()}
-                        className="h-12 md:h-14 px-6"
-                      >
-                        Add
-                      </Button>
-                    </div>
+                  <div className="flex flex-row gap-2 justify-center">
+                    <Input
+                      type="text"
+                      placeholder="Qty"
+                      value={itemQuantity}
+                      onChange={(e) => setItemQuantity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTextInputSubmit();
+                        }
+                      }}
+                      className="h-10 md:h-12 w-24 md:w-28 text-sm bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 [&::placeholder]:text-gray-500 shrink-0"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Item name..."
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTextInputSubmit();
+                        }
+                      }}
+                      className="h-10 md:h-12 text-sm bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-gray-400 focus:border-gray-400 flex-[0.6] min-w-0 [&::placeholder]:text-gray-500"
+                    />
+                    <Button
+                      onClick={handleTextInputSubmit}
+                      disabled={!textInput.trim()}
+                      className="h-10 md:h-12 px-3 md:px-6 text-sm shrink-0"
+                    >
+                      Add
+                    </Button>
                   </div>
 
                   {/* Progress Bar */}
@@ -1242,10 +1199,8 @@ export const GroceryApp: React.FC = () => {
                     editingItemId={editingItemId}
                     editValue={editValue}
                     editQuantity={editQuantity}
-                    editUnit={editUnit}
                     onEditValueChange={setEditValue}
                     onEditQuantityChange={setEditQuantity}
-                    onEditUnitChange={setEditUnit}
                     viewMode="shopping"
                     className="animate-slide-up"
                   />

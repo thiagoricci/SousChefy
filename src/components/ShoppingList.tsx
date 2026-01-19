@@ -48,15 +48,13 @@ interface ShoppingListProps {
   items: ShoppingItem[];
   onToggleItem: (id: string) => void;
   onRemoveItem: (id: string) => void;
-  onEditItem?: (id: string, newName: string, newQuantity?: string, newUnit?: string) => void;
+  onEditItem?: (id: string, newName: string, newQuantity?: string) => void;
   onCancelEdit?: () => void;
   editingItemId?: string | null;
   editValue?: string;
   editQuantity?: string;
-  editUnit?: string;
   onEditValueChange?: (value: string) => void;
   onEditQuantityChange?: (value: string) => void;
-  onEditUnitChange?: (value: string) => void;
   viewMode?: 'editing' | 'shopping';
   className?: string;
 }
@@ -189,29 +187,31 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                     </div>
                   ) : (
                     // Normal display mode
-                    <div className="flex items-center gap-2 flex-1">
-                      <span
-                        onClick={viewMode === 'editing' ? () => {
-                          onEditValueChange && onEditValueChange(item.name);
-                          onEditQuantityChange && onEditQuantityChange(item.quantity?.toString() || '');
-                          onEditUnitChange && onEditUnitChange(item.unit || 'none');
-                          onEditItem && onEditItem(item.id, item.name, item.quantity?.toString() || '', item.unit || 'none');
-                        } : undefined}
-                        className={cn(
-                          "text-lg font-medium transition-all duration-300 py-2 cursor-pointer hover:bg-muted/50 rounded px-2",
-                          viewMode === 'editing' && "",
-                          item.completed
-                            ? "text-muted-foreground line-through opacity-70"
-                            : "text-foreground"
-                        )}
-                      >
-                        {item.name}
-                      </span>
-                      {(item.quantity || (item.unit && item.unit !== 'none')) && (
-                        <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded min-w-[32px] text-center">
-                          {item.quantity}{item.unit && item.unit !== 'none' ? ` ${item.unit}` : ''}
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex-1 flex flex-col justify-center">
+                        <span
+                          onClick={viewMode === 'editing' ? () => {
+                            onEditValueChange && onEditValueChange(item.name);
+                            onEditQuantityChange && onEditQuantityChange(item.quantity?.toString() || '');
+                            onEditUnitChange && onEditUnitChange(item.unit || 'none');
+                            onEditItem && onEditItem(item.id, item.name, item.quantity?.toString() || '', item.unit || 'none');
+                          } : undefined}
+                          className={cn(
+                            "text-lg font-semibold transition-all duration-300 cursor-pointer hover:bg-muted/50 rounded px-2 py-1",
+                            viewMode === 'editing' && "",
+                            item.completed
+                              ? "text-muted-foreground line-through opacity-70"
+                              : "text-foreground"
+                          )}
+                        >
+                          {item.name}
                         </span>
-                      )}
+                        {(item.quantity || (item.unit && item.unit !== 'none')) && (
+                          <span className="text-sm text-muted-foreground px-2">
+                            {item.quantity}{item.unit && item.unit !== 'none' ? ` ${item.unit}` : ''}
+                          </span>
+                        )}
+                      </div>
                       {viewMode === 'editing' && (
                         <Button
                           variant="ghost"
