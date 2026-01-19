@@ -9,7 +9,7 @@ const LandingPage = () => {
       
       {/* Top Section */}
       <div className="flex flex-col items-center w-full max-w-md mx-auto z-10">
-        <h1 className="text-5xl font-bold text-primary mb-2 tracking-tight">SousChefy</h1>
+        <h1 className="text-5xl font-bold text-primary mb-2 tracking-tight pt-4">SousChefy</h1>
       </div>
 
       {/* Hero Image Section */}
