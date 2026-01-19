@@ -1032,7 +1032,7 @@ export const GroceryApp: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between py-4 md:py-6 relative">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center pt-4">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center pt-12">
               Hi {user?.name || user?.email}, welcome!
             </h1>
           </div>
