@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, Search, ChefHat, Heart } from 'lucide-react';
+import { Home, Search, ChefHat, Heart, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type ViewType = 'home' | 'search' | 'cooking' | 'favorites';
+export type ViewType = 'home' | 'search' | 'cooking' | 'favorites' | 'pantry';
 
 interface BottomNavigationProps {
   activeView: ViewType;
@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { id: 'search', label: 'Search', icon: <Search className="w-5 h-5" /> },
   { id: 'cooking', label: 'Cooking', icon: <ChefHat className="w-5 h-5" /> },
   { id: 'favorites', label: 'Favorites', icon: <Heart className="w-5 h-5" /> },
+  { id: 'pantry', label: 'Pantry', icon: <Package className="w-5 h-5" /> },
 ];
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({

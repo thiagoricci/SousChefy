@@ -1,0 +1,452 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
+import { Trash2, Plus, ChefHat, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { pantryApi } from '@/lib/pantry-api';
+import { generateRecipesFromPantry } from '@/lib/openai';
+import { type PantryItem, type PantryRecipe, type PantryCategory } from '@/types/pantry';
+import { type ShoppingItem } from './ShoppingList';
+import { cn, findBestMatch } from '@/lib/utils';
+
+const CATEGORIES: { value: PantryCategory; label: string }[] = [
+  { value: 'produce', label: 'Produce' },
+  { value: 'dairy', label: 'Dairy' },
+  { value: 'protein', label: 'Protein' },
+  { value: 'grains', label: 'Grains' },
+  { value: 'canned', label: 'Canned' },
+  { value: 'frozen', label: 'Frozen' },
+  { value: 'spices', label: 'Spices' },
+  { value: 'oils', label: 'Oils' },
+  { value: 'condiments', label: 'Condiments' },
+  { value: 'beverages', label: 'Beverages' },
+  { value: 'snacks', label: 'Snacks' },
+  { value: 'baking', label: 'Baking' },
+  { value: 'other', label: 'Other' },
+];
+
+interface PantryTabProps {
+  onAddMissingIngredients: (ingredients: ShoppingItem[]) => void;
+}
+
+export const PantryTab: React.FC<PantryTabProps> = ({ onAddMissingIngredients }) => {
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [generatedRecipes, setGeneratedRecipes] = useState<PantryRecipe[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState('');
+  const [newItemUnit, setNewItemUnit] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState<PantryCategory>('other');
+  const { toast } = useToast();
+
+  // Load pantry items on mount
+  useEffect(() => {
+    loadPantryItems();
+  }, []);
+
+  const loadPantryItems = async () => {
+    try {
+      const items = await pantryApi.getAll();
+      setPantryItems(items);
+    } catch (error) {
+      console.error('Failed to load pantry items:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load pantry items',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddItem = async () => {
+    if (!newItemName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter an ingredient name',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const quantity = newItemQuantity ? parseFloat(newItemQuantity) : undefined;
+      const unit = newItemUnit || undefined;
+
+      await pantryApi.create({
+        name: newItemName.trim(),
+        quantity: quantity || null,
+        unit: unit || null,
+        category: newItemCategory,
+      });
+
+      setNewItemName('');
+      setNewItemQuantity('');
+      setNewItemUnit('');
+      setNewItemCategory('other');
+
+      toast({
+        title: 'Added',
+        description: `${newItemName} added to pantry`,
+      });
+
+      await loadPantryItems();
+    } catch (error) {
+      console.error('Failed to add pantry item:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add ingredient to pantry',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await pantryApi.delete(id);
+      toast({
+        title: 'Deleted',
+        description: 'Ingredient removed from pantry',
+      });
+      await loadPantryItems();
+    } catch (error) {
+      console.error('Failed to delete pantry item:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove ingredient',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleGenerateRecipes = async () => {
+    if (pantryItems.length === 0) {
+      toast({
+        title: 'Empty Pantry',
+        description: 'Add some ingredients to your pantry first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedRecipes([]);
+
+    try {
+      const recipes = await generateRecipesFromPantry(
+        pantryItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity || undefined,
+          unit: item.unit || undefined,
+        })),
+        (recipes) => {
+          setGeneratedRecipes(recipes);
+        }
+      );
+
+      setGeneratedRecipes(recipes);
+
+      toast({
+        title: 'Recipes Generated',
+        description: `Found ${recipes.length} recipes using your pantry`,
+      });
+    } catch (error) {
+      console.error('Failed to generate recipes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate recipes. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleAddMissingIngredients = (recipe: PantryRecipe) => {
+    const missingIngredients: ShoppingItem[] = recipe.missingIngredients.map(ing => {
+      const bestMatch = findBestMatch(ing.name);
+      const displayName = bestMatch || ing.name;
+
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+        completed: false,
+        quantity: ing.quantity ? parseFloat(ing.quantity) : undefined,
+        unit: ing.unit || undefined,
+      };
+    });
+
+    onAddMissingIngredients(missingIngredients);
+
+    toast({
+      title: 'Added to Shopping List',
+      description: `${missingIngredients.length} ingredients added from "${recipe.name}"`,
+    });
+  };
+
+  // Group items by category
+  const groupedItems = CATEGORIES.reduce((acc, category) => {
+    acc[category.value] = pantryItems.filter(item => item.category === category.value);
+    return acc;
+  }, {} as Record<PantryCategory, PantryItem[]>);
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="text-center">
+        <p className="text-lg md:text-xl font-semibold text-muted-foreground">
+          My Pantry
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {pantryItems.length} ingredient{pantryItems.length !== 1 ? 's' : ''} in stock
+        </p>
+      </div>
+
+      {/* Add Ingredient Form */}
+      <Card className="p-4 md:p-6 shadow-card rounded-xl md:rounded-2xl border-0 bg-white/80 backdrop-blur-sm">
+        <div className="space-y-3">
+          <Input
+            type="text"
+            placeholder="Ingredient name..."
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleAddItem();
+              }
+            }}
+            className="h-10 md:h-12 text-sm"
+          />
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="Qty"
+              value={newItemQuantity}
+              onChange={(e) => setNewItemQuantity(e.target.value)}
+              className="h-10 md:h-12 w-24 md:w-28 text-sm"
+            />
+            <Input
+              type="text"
+              placeholder="Unit"
+              value={newItemUnit}
+              onChange={(e) => setNewItemUnit(e.target.value)}
+              className="h-10 md:h-12 w-24 md:w-28 text-sm"
+            />
+            <select
+              value={newItemCategory}
+              onChange={(e) => setNewItemCategory(e.target.value as PantryCategory)}
+              className="h-10 md:h-12 flex-1 text-sm border-2 border-gray-300 rounded-md px-3 bg-white focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={handleAddItem}
+            disabled={isAdding || !newItemName.trim()}
+            className="w-full h-10 md:h-12"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add to Pantry
+          </Button>
+        </div>
+      </Card>
+
+      {/* Generate Recipes Button */}
+      {pantryItems.length > 0 && generatedRecipes.length === 0 && (
+        <div className="flex justify-center">
+          <Button
+            onClick={handleGenerateRecipes}
+            disabled={isGenerating}
+            size="lg"
+            className="px-8 py-3 md:py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all font-medium bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 min-h-[48px] md:min-h-0"
+          >
+            <ChefHat className="w-5 h-5 mr-2" />
+            {isGenerating ? 'Generating Recipes...' : 'Cook With What I Have'}
+          </Button>
+        </div>
+      )}
+
+      {/* Generated Recipes */}
+      {generatedRecipes.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Recipe Suggestions</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setGeneratedRecipes([])}
+            >
+              Clear
+            </Button>
+          </div>
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-3">
+              {generatedRecipes.map((recipe) => (
+                <Card
+                  key={recipe.id}
+                  className="p-4 shadow-card rounded-xl border-0 bg-white/80 backdrop-blur-sm"
+                >
+                  <div className="space-y-3">
+                    {/* Recipe Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg">{recipe.name}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {recipe.description}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          'ml-2',
+                          recipe.pantryCoverage >= 80 && 'bg-green-100 text-green-800',
+                          recipe.pantryCoverage >= 50 && recipe.pantryCoverage < 80 && 'bg-yellow-100 text-yellow-800',
+                          recipe.pantryCoverage < 50 && 'bg-red-100 text-red-800'
+                        )}
+                      >
+                        {recipe.pantryCoverage}% pantry
+                      </Badge>
+                    </div>
+
+                    {/* Recipe Details */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>⏱️ {recipe.estimatedTime}</span>
+                      <span>📊 {recipe.difficulty}</span>
+                    </div>
+
+                    {/* Ingredients */}
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">
+                        From Pantry ({recipe.ingredientsUsedFromPantry.length}):
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.ingredientsUsedFromPantry.map((ing, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {ing.quantity && `${ing.quantity} `}
+                            {ing.unit && `${ing.unit} `}
+                            {ing.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {recipe.missingIngredients.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium text-red-600">
+                          Missing ({recipe.missingIngredients.length}):
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {recipe.missingIngredients.map((ing, idx) => (
+                            <Badge key={idx} variant="destructive" className="text-xs">
+                              {ing.quantity && `${ing.quantity} `}
+                              {ing.unit && `${ing.unit} `}
+                              {ing.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      {recipe.missingIngredients.length > 0 && (
+                        <Button
+                          onClick={() => handleAddMissingIngredients(recipe)}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Add Missing to List
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // View full recipe details
+                          toast({
+                            title: 'Recipe Details',
+                            description: 'Full recipe view coming soon!',
+                          });
+                        }}
+                      >
+                        View Recipe
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Pantry Items List */}
+      {generatedRecipes.length === 0 && (
+        <ScrollArea className="h-[500px]">
+          <div className="space-y-3">
+            {CATEGORIES.map((category) => {
+              const items = groupedItems[category.value];
+              if (items.length === 0) return null;
+
+              return (
+                <div key={category.value} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    {category.label}
+                  </h3>
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <Card
+                        key={item.id}
+                        className="p-3 shadow-card rounded-lg border-0 bg-white/80 backdrop-blur-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium">{item.name}</div>
+                            {(item.quantity || item.unit) && (
+                              <div className="text-sm text-muted-foreground">
+                                {item.quantity && `${item.quantity} `}
+                                {item.unit && item.unit}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteItem(item.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {pantryItems.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <ChefHat className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">Your pantry is empty</p>
+                <p className="text-sm mt-2">
+                  Add ingredients to get started with recipe suggestions
+                </p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+};

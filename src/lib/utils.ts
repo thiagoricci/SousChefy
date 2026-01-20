@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { GROCERY_ITEMS_SET, ALL_GROCERY_ITEMS } from '@/data/groceryItems';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,3 +37,51 @@ export function filterJsonStreaming(currentText: string, newChunk: string): stri
   const combined = currentText + newChunk;
   return stripJsonBlocks(combined);
 }
+
+// Function to find best matching grocery item
+export const findBestMatch = (item: string): string | null => {
+  const normalized = item.toLowerCase().trim();
+
+  // Direct match
+  if (GROCERY_ITEMS_SET.has(normalized)) {
+    return normalized;
+  }
+
+  // Find partial matches and return most specific one
+  const matches = ALL_GROCERY_ITEMS.filter(groceryItem => {
+    // Handle plurals (e.g., "apples" matches "apple")
+    if (normalized.endsWith('s') && groceryItem === normalized.slice(0, -1)) {
+      return true;
+    }
+    if (groceryItem.endsWith('s') && normalized === groceryItem.slice(0, -1)) {
+      return true;
+    }
+
+    // Handle compound items (e.g., "greek yogurt" contains "yogurt")
+    if (normalized.includes(' ') || groceryItem.includes(' ')) {
+      const normalizedWords = normalized.split(' ');
+      const groceryWords = groceryItem.split(' ');
+
+      // Check if all words in grocery item are present in normalized item
+      if (groceryWords.every(word => normalizedWords.includes(word))) {
+        return true;
+      }
+
+      // Check if all words in normalized item are present in grocery item
+      if (normalizedWords.every(word => groceryWords.includes(word))) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  // Return longest match (most specific)
+  if (matches.length > 0) {
+    return matches.reduce((longest, current) =>
+      current.length > longest.length ? current : longest
+    );
+  }
+
+  return null;
+};

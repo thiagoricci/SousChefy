@@ -17,6 +17,7 @@ model User {
 
   lists         List[]
   recipes       Recipe[]
+  pantry        Pantry[]
   preferences   UserPreferences?
   sharedLists   SharedList[] @relation("SharedBy")
   receivedLists SharedList[] @relation("SharedWith")
@@ -52,6 +53,21 @@ model Recipe {
   updatedAt    DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Pantry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  quantity    Float?
+  unit        String?
+  category    String?  // produce, dairy, protein, etc.
+  addedAt     DateTime @default(now())
+  expiresAt   DateTime?
+
+  @@index([userId])
+  @@index([userId, category])
 }
 
 model UserPreferences {

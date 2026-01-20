@@ -3,6 +3,7 @@ import { ShoppingList, type ShoppingItem } from './ShoppingList';
 import { HistoryTab } from './HistoryTab';
 import { RecipeTab } from './RecipeTab';
 import { RecipeDetail } from './RecipeDetail';
+import { PantryTab } from './PantryTab';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ArrowLeft, Edit2, LogOut } from 'lucide-react';
@@ -33,7 +34,7 @@ export const GroceryApp: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('home');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [editQuantity, setEditQuantity] = useState('');
+  const [editQuantityUnit, setEditQuantityUnit] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
   const { toast } = useToast();
   const { user, logout } = useAuth();
@@ -512,6 +513,34 @@ export const GroceryApp: React.FC = () => {
     setActiveView('home');
   }, [toast]);
 
+  // Handler for adding missing ingredients from pantry recipes to shopping list
+  const handleAddMissingIngredients = useCallback((ingredients: ShoppingItem[]) => {
+    setItems(prevItems => {
+      const itemsToAdd = ingredients.filter(newItem =>
+        !prevItems.some(existing => existing.name.toLowerCase() === newItem.name.toLowerCase())
+      );
+
+      if (itemsToAdd.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: `Added ${itemsToAdd.length} ingredient${itemsToAdd.length > 1 ? "s" : ""}`,
+            description: itemsToAdd.map(item => {
+              if (item.quantity) {
+                return `${item.quantity}${item.unit ? ` ${item.unit} ` : ' '}${item.name}`;
+              }
+              return item.name;
+            }).join(", "),
+          });
+        }, 0);
+      }
+
+      return [...prevItems, ...itemsToAdd];
+    });
+
+    // Switch to home view
+    setActiveView('home');
+  }, [toast]);
+
   const handleToggleItem = (id: string) => {
     setItems(prev => {
       const updatedItems = prev.map(item =>
@@ -527,12 +556,12 @@ export const GroceryApp: React.FC = () => {
   };
 
   // Handle editing an item
-  const handleEditItem = useCallback((id: string, newName: string, newQuantity?: string, newUnit?: string) => {
+  const handleEditItem = useCallback((id: string, newName: string, newQuantityUnit?: string) => {
     // If this is the first click on an item, enter edit mode
     if (editingItemId === null || editingItemId !== id) {
       setEditingItemId(id);
       setEditValue(newName);
-      setEditQuantity(newQuantity || '');
+      setEditQuantityUnit(newQuantityUnit || '');
       return;
     }
 
@@ -568,14 +597,14 @@ export const GroceryApp: React.FC = () => {
     let numericQuantity: number | undefined = undefined;
     let finalUnit: string | undefined = undefined;
     
-    if (newQuantity && newQuantity.trim()) {
+    if (newQuantityUnit && newQuantityUnit.trim()) {
       const quantityPatterns = [
         /^(\d+(?:\.\d+)?)\s*([a-zA-Z]*)$/,
         /^(one|two|three|four|five|six|seven|eight|nine|ten)$/i,
       ];
       
       for (const pattern of quantityPatterns) {
-        const match = newQuantity.trim().match(pattern);
+        const match = newQuantityUnit.trim().match(pattern);
         if (match) {
           if (pattern === quantityPatterns[0]) {
             numericQuantity = parseFloat(match[1]);
@@ -602,7 +631,7 @@ export const GroceryApp: React.FC = () => {
     // Exit edit mode
     setEditingItemId(null);
     setEditValue('');
-    setEditQuantity('');
+    setEditQuantityUnit('');
 
     toast({
       title: "Item Updated",
@@ -614,7 +643,7 @@ export const GroceryApp: React.FC = () => {
   const handleCancelEdit = useCallback(() => {
     setEditingItemId(null);
     setEditValue('');
-    setEditQuantity('');
+    setEditQuantityUnit('');
   }, []);
 
   const handleClearList = () => {
@@ -1117,9 +1146,9 @@ export const GroceryApp: React.FC = () => {
                     onCancelEdit={handleCancelEdit}
                     editingItemId={editingItemId}
                     editValue={editValue}
-                    editQuantity={editQuantity}
+                    editQuantityUnit={editQuantityUnit}
                     onEditValueChange={setEditValue}
-                    onEditQuantityChange={setEditQuantity}
+                    onEditQuantityUnitChange={setEditQuantityUnit}
                     viewMode="editing"
                     className="animate-slide-up"
                   />
@@ -1198,9 +1227,9 @@ export const GroceryApp: React.FC = () => {
                     onCancelEdit={handleCancelEdit}
                     editingItemId={editingItemId}
                     editValue={editValue}
-                    editQuantity={editQuantity}
+                    editQuantityUnit={editQuantityUnit}
                     onEditValueChange={setEditValue}
-                    onEditQuantityChange={setEditQuantity}
+                    onEditQuantityUnitChange={setEditQuantityUnit}
                     viewMode="shopping"
                     className="animate-slide-up"
                   />
@@ -1279,6 +1308,13 @@ export const GroceryApp: React.FC = () => {
                 onAddRecipeToShoppingList={handleAddRecipeToShoppingList}
                 onDeleteRecipe={handleDeleteRecipe}
               />
+            </div>
+          )}
+
+          {activeView === 'pantry' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Pantry Tab */}
+              <PantryTab onAddMissingIngredients={handleAddMissingIngredients} />
             </div>
           )}
         </div>

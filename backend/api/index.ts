@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import listsRouter from '../src/routes/lists'
 import recipesRouter from '../src/routes/recipes'
 import authRouter from '../src/routes/auth'
+import pantryRouter from '../src/routes/pantry'
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 const prisma = globalForPrisma.prisma || new PrismaClient()
@@ -38,6 +39,7 @@ app.use((req: any, res: any, next: any) => {
 app.use('/api/auth', authRouter)
 app.use('/api/lists', listsRouter)
 app.use('/api/recipes', recipesRouter)
+app.use('/api/pantry', pantryRouter)
 
 // Health check
 app.get('/health', (req, res) => {

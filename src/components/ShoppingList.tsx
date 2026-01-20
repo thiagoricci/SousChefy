@@ -48,13 +48,13 @@ interface ShoppingListProps {
   items: ShoppingItem[];
   onToggleItem: (id: string) => void;
   onRemoveItem: (id: string) => void;
-  onEditItem?: (id: string, newName: string, newQuantity?: string) => void;
+  onEditItem?: (id: string, newName: string, newQuantityUnit?: string) => void;
   onCancelEdit?: () => void;
   editingItemId?: string | null;
   editValue?: string;
-  editQuantity?: string;
+  editQuantityUnit?: string;
   onEditValueChange?: (value: string) => void;
-  onEditQuantityChange?: (value: string) => void;
+  onEditQuantityUnitChange?: (value: string) => void;
   viewMode?: 'editing' | 'shopping';
   className?: string;
 }
@@ -67,11 +67,9 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
   onCancelEdit,
   editingItemId,
   editValue,
-  editQuantity,
-  editUnit,
+  editQuantityUnit,
   onEditValueChange,
-  onEditQuantityChange,
-  onEditUnitChange,
+  onEditQuantityUnitChange,
   viewMode = 'editing',
   className
 }) => {
@@ -125,43 +123,26 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                     // Edit mode - show input fields with save/cancel buttons
                     <div className="flex-1 flex gap-2 flex-wrap">
                       <Input
-                        type="number"
-                        value={editQuantity || ''}
-                        onChange={(e) => onEditQuantityChange && onEditQuantityChange(e.target.value)}
+                        type="text"
+                        value={editQuantityUnit || ''}
+                        onChange={(e) => onEditQuantityUnitChange && onEditQuantityUnitChange(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            onEditItem && onEditItem(item.id, editValue || '', editQuantity || '', editUnit || '');
+                            onEditItem && onEditItem(item.id, editValue || '', editQuantityUnit || '');
                           } else if (e.key === 'Escape') {
                             onCancelEdit && onCancelEdit();
                           }
                         }}
-                        placeholder="Qty"
-                        min="0"
-                        step="0.5"
-                        className="w-20 h-10 [&::placeholder]:text-gray-500"
+                        placeholder="Qty & unit (e.g., 2 kg, 500g)"
+                        className="w-44 h-10 text-sm [&::placeholder]:text-gray-500"
                       />
-                      <Select
-                        value={editUnit || 'none'}
-                        onValueChange={(value) => onEditUnitChange && onEditUnitChange(value)}
-                      >
-                        <SelectTrigger className="w-32 h-10 [&_[data-placeholder]]:text-gray-500 [&_span]:text-gray-500">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {UNIT_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <Input
                         type="text"
                         value={editValue || ''}
                         onChange={(e) => onEditValueChange && onEditValueChange(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            onEditItem && onEditItem(item.id, editValue || '', editQuantity || '', editUnit || 'none');
+                            onEditItem && onEditItem(item.id, editValue || '', editQuantityUnit || '');
                           } else if (e.key === 'Escape') {
                             onCancelEdit && onCancelEdit();
                           }
@@ -171,7 +152,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                       />
                       <Button
                         size="sm"
-                        onClick={() => onEditItem && onEditItem(item.id, editValue || '', editQuantity || '', editUnit || 'none')}
+                        onClick={() => onEditItem && onEditItem(item.id, editValue || '', editQuantityUnit || '')}
                         className="bg-green-500 hover:bg-green-600 h-10 px-3"
                       >
                         <Check className="w-4 h-4" />
@@ -191,10 +172,12 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                       <div className="flex-1 flex flex-col justify-center">
                         <span
                           onClick={viewMode === 'editing' ? () => {
+                            const quantityUnit = item.quantity && item.unit
+                              ? `${item.quantity} ${item.unit}`
+                              : item.quantity?.toString() || '';
                             onEditValueChange && onEditValueChange(item.name);
-                            onEditQuantityChange && onEditQuantityChange(item.quantity?.toString() || '');
-                            onEditUnitChange && onEditUnitChange(item.unit || 'none');
-                            onEditItem && onEditItem(item.id, item.name, item.quantity?.toString() || '', item.unit || 'none');
+                            onEditQuantityUnitChange && onEditQuantityUnitChange(quantityUnit);
+                            onEditItem && onEditItem(item.id, item.name, quantityUnit);
                           } : undefined}
                           className={cn(
                             "text-lg font-semibold transition-all duration-300 cursor-pointer hover:bg-muted/50 rounded px-2 py-1",
@@ -217,10 +200,12 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
                           variant="ghost"
                           size="sm"
                           onClick={() => {
+                            const quantityUnit = item.quantity && item.unit
+                              ? `${item.quantity} ${item.unit}`
+                              : item.quantity?.toString() || '';
                             onEditValueChange && onEditValueChange(item.name);
-                            onEditQuantityChange && onEditQuantityChange(item.quantity?.toString() || '');
-                            onEditUnitChange && onEditUnitChange(item.unit || 'none');
-                            onEditItem && onEditItem(item.id, item.name, item.quantity?.toString() || '', item.unit || 'none');
+                            onEditQuantityUnitChange && onEditQuantityUnitChange(quantityUnit);
+                            onEditItem && onEditItem(item.id, item.name, quantityUnit);
                           }}
                           className="flex-shrink-0 text-muted-foreground hover:text-primary hover:bg-destructive/10 p-2 rounded-xl transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"
                           aria-label="Edit item"
