@@ -1,4 +1,4 @@
-// Comprehensive grocery item database for recognition
+// Comprehensive grocery item database
 export const GROCERY_ITEMS = {
   // Fresh Fruits
   fruits: [

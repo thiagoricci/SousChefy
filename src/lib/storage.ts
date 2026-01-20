@@ -1,12 +1,14 @@
 import { type ShoppingItem } from '@/components/ShoppingList';
 import { type SavedList } from '@/types/shopping';
 import { type SavedRecipe } from '@/types/recipe';
+import { type User } from '@/types/auth';
 
 const STORAGE_KEYS = {
   CURRENT_LIST: 'grocerli-current-list',
   HISTORY: 'grocerli-history',
   SAVED_RECIPES: 'grocerli-saved-recipes',
-  AUTH_TOKEN: 'voice-shopper-auth-token',
+  AUTH_TOKEN: 'auth-token',
+  USER_DATA: 'user-data',
 } as const;
 
 /**
@@ -78,6 +80,35 @@ export const clearAuthToken = (): void => {
  */
 export const isAuthenticated = (): boolean => {
   return !!getAuthToken();
+};
+
+/**
+ * Set user data
+ */
+export const setUserData = (user: User): void => {
+  localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+};
+
+/**
+ * Get user data
+ */
+export const getUserData = (): User | null => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+    if (stored) {
+      return JSON.parse(stored) as User;
+    }
+  } catch (error) {
+    console.error('Failed to load user data from localStorage:', error);
+  }
+  return null;
+};
+
+/**
+ * Clear user data
+ */
+export const clearUserData = (): void => {
+  localStorage.removeItem(STORAGE_KEYS.USER_DATA);
 };
 
 // ============ DATABASE OPERATIONS (History, Recipes, Preferences) ============
@@ -400,6 +431,7 @@ export const clearStorage = (): void => {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_LIST);
     localStorage.removeItem(STORAGE_KEYS.HISTORY);
     localStorage.removeItem(STORAGE_KEYS.SAVED_RECIPES);
+    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
   } catch (error) {
     console.error('Failed to clear localStorage:', error);
   }

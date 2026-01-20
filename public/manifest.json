@@ -1,7 +1,7 @@
 {
   "name": "SousChefy",
   "short_name": "SousChefy",
-  "description": "Voice-controlled grocery shopping application",
+  "description": "AI-powered grocery shopping application",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

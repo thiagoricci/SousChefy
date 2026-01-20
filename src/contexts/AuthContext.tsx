@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { authApi } from '@/lib/auth-api'
-import { setAuthToken, clearAuthToken, getAuthToken } from '@/lib/storage'
+import { setAuthToken, clearAuthToken, getAuthToken, setUserData, clearUserData, getUserData } from '@/lib/storage'
 import type { AuthContextType, User, LoginCredentials, RegisterCredentials } from '@/types/auth'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -14,13 +14,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     try {
       const token = getAuthToken()
-      if (token) {
+      const cachedUser = getUserData()
+
+      // If we have both token and cached user data, use it immediately
+      if (token && cachedUser) {
+        setUser(cachedUser)
+
+        // Validate token in background
+        try {
+          const currentUser = await authApi.getCurrentUser()
+          setUser(currentUser) // Update with fresh data
+          setUserData(currentUser) // Update cache
+        } catch (error: any) {
+          // If validation fails, check if it's a network error or invalid token
+          if (error.response?.status === 401) {
+            // Invalid token - logout
+            logout()
+          } else {
+            // Network error - keep user logged in with cached data
+            console.error('Failed to validate token, using cached data:', error)
+          }
+        }
+      } else if (token) {
+        // Token exists but no cached user - fetch from backend
         const currentUser = await authApi.getCurrentUser()
         setUser(currentUser)
+        setUserData(currentUser)
       }
+      // If neither exists, user is not logged in
     } catch (error) {
       console.error('Auth check failed:', error)
-      authApi.logout()
+      // Don't auto-logout on network errors
+      const errorObj = error as any
+      if (errorObj.response?.status === 401) {
+        logout()
+      }
     } finally {
       setIsLoading(false)
     }
@@ -29,18 +57,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: LoginCredentials) => {
     const response = await authApi.login(credentials)
     setAuthToken(response.token)
+    setUserData(response.user)
     setUser(response.user)
   }
 
   const register = async (credentials: RegisterCredentials) => {
     const response = await authApi.register(credentials)
-    localStorage.setItem('voice-shopper-auth-token', response.token)
+    setAuthToken(response.token)
+    setUserData(response.user)
     setUser(response.user)
   }
 
   const logout = () => {
     authApi.logout()
     clearAuthToken()
+    clearUserData()
     setUser(null)
   }
 

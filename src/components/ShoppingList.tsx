@@ -83,7 +83,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
           <div className="space-y-2">
             <h3 className="text-xl font-semibold text-foreground">Empty Shopping List</h3>
             <p className="text-muted-foreground max-w-xs mx-auto">
-              No items in your shopping list yet. Use voice input to add items!
+              No items in your shopping list yet. Add items to get started!
             </p>
           </div>
         </div>
@@ -244,7 +244,7 @@ export const ShoppingList: React.FC<ShoppingListProps> = ({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-voice-listening"></div>
+            <div className="w-3 h-3 rounded-full bg-primary"></div>
             <span className="font-medium">
               {items.length - items.filter(item => item.completed).length} remaining
             </span>

@@ -18,6 +18,6 @@ export const authApi = {
   },
 
   logout: () => {
-    localStorage.removeItem('voice-shopper-auth-token')
+    localStorage.removeItem('auth-token')
   }
 }

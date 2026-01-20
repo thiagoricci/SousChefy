@@ -19,7 +19,7 @@ const apiClient = axios.create({
 
 // Add auth token to requests
 apiClient.interceptors.request.use((config: any) => {
-  const token = localStorage.getItem('voice-shopper-auth-token')
+  const token = localStorage.getItem('auth-token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -30,8 +30,10 @@ apiClient.interceptors.request.use((config: any) => {
 apiClient.interceptors.response.use(
   (response: any) => response,
   (error: any) => {
+    // Only logout on 401 (invalid token), not on network errors
     if (error.response?.status === 401) {
-      localStorage.removeItem('voice-shopper-auth-token')
+      localStorage.removeItem('auth-token')
+      localStorage.removeItem('user-data')
       window.location.href = '/login'
     }
     return Promise.reject(error)

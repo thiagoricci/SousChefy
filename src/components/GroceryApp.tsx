@@ -15,8 +15,11 @@ import { isValidGroceryItem, findBestMatch } from '@/data/groceryItems';
 import { saveCurrentList, loadCurrentList, saveHistory, loadHistory, loadRecipes, deleteRecipe } from '@/lib/storage';
 import { listsApi } from '@/lib/lists-api';
 import { recipesApi } from '@/lib/recipes-api';
+import { pantryApi } from '@/lib/pantry-api';
+import { classifyPantryItem } from '@/lib/openai';
 import { type SavedList } from '@/types/shopping';
 import { type RecipeIngredient, type SavedRecipe, type Recipe } from '@/types/recipe';
+import { type PantryItem } from '@/types/pantry';
 import { BottomNavigation, type ViewType } from './BottomNavigation';
 import { CookingMode } from './CookingMode';
 
@@ -176,9 +179,9 @@ export const GroceryApp: React.FC = () => {
     return { quantity: undefined, unit: undefined, itemName };
   }, []);
 
-  // Enhanced parsing function for natural speech patterns
-  const parseAndAddItems = useCallback((transcript: string) => {
-    let normalized = transcript.toLowerCase().trim();
+  // Enhanced parsing function for natural language patterns
+  const parseAndAddItems = useCallback((input: string) => {
+    let normalized = input.toLowerCase().trim();
 
     const fillerWords = [
       'i need', 'i want', 'get me', 'buy', 'purchase', 'pick up',
@@ -649,7 +652,7 @@ export const GroceryApp: React.FC = () => {
   const handleClearList = () => {
     setItems([]);
     setEditingListId(null);
-    localStorage.removeItem('voice-shopper-current-list');
+    localStorage.removeItem('current-list');
   };
 
   const handleDone = () => {
@@ -675,6 +678,76 @@ export const GroceryApp: React.FC = () => {
   const handleBackToEdit = () => {
     setViewMode('editing');
   };
+
+  // Add completed shopping items to pantry
+  const handleAddCompletedItemsToPantry = useCallback(async (completedItems: ShoppingItem[]) => {
+    if (!user) {
+      // Skip pantry sync for unauthenticated users
+      return;
+    }
+
+    try {
+      // Get current pantry items to check for duplicates
+      const currentPantryItems = await pantryApi.getAll();
+      const pantryItemNames = new Set(
+        currentPantryItems.map(item => item.name.toLowerCase())
+      );
+
+      const itemsToAdd: ShoppingItem[] = [];
+      const duplicateItems: string[] = [];
+
+      // Check each completed item
+      for (const item of completedItems) {
+        const itemNameLower = item.name.toLowerCase();
+        
+        if (pantryItemNames.has(itemNameLower)) {
+          // Item already exists in pantry
+          duplicateItems.push(item.name);
+        } else {
+          // New item to add
+          itemsToAdd.push(item);
+        }
+      }
+
+      // Add new items to pantry with AI classification
+      for (const item of itemsToAdd) {
+        try {
+          // Classify item using AI
+          const category = await classifyPantryItem(item.name);
+          
+          // Create pantry item
+          await pantryApi.create({
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            category: category,
+          });
+        } catch (error) {
+          console.error(`Failed to add ${item.name} to pantry:`, error);
+          // Continue with other items even if one fails
+        }
+      }
+
+      // Show toast notification
+      if (itemsToAdd.length > 0) {
+        toast({
+          title: "Pantry Updated",
+          description: `Added ${itemsToAdd.length} item${itemsToAdd.length > 1 ? 's' : ''} to your pantry.`,
+        });
+      }
+
+      if (duplicateItems.length > 0) {
+        toast({
+          title: "Already in Pantry",
+          description: `${duplicateItems.length} item${duplicateItems.length > 1 ? 's were' : ' was'} already in your pantry.`,
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync completed items to pantry:', error);
+      // Don't show error toast - this is a background operation
+    }
+  }, [user, toast]);
 
   // Handle completion celebration
   useEffect(() => {
@@ -758,6 +831,9 @@ export const GroceryApp: React.FC = () => {
           setHistory(prev => [completedList, ...prev.slice(0, 9)]);
         }
         
+        // Add completed items to pantry
+        await handleAddCompletedItemsToPantry(items);
+        
         toast({
           title: "🎉 Shopping Complete!",
           description: "Congratulations! Your list has been saved to history.",
@@ -778,7 +854,7 @@ export const GroceryApp: React.FC = () => {
         }, 1000);
       }, 0);
     }
-  }, [items, viewMode, toast, user]);
+  }, [items, viewMode, toast, user, handleAddCompletedItemsToPantry]);
 
   // Play success sound
   const playSuccessSound = () => {
@@ -838,7 +914,7 @@ export const GroceryApp: React.FC = () => {
   const clearHistory = () => {
     setHistory([]);
     setEditingListId(null);
-    localStorage.removeItem('voice-shopper-history');
+    localStorage.removeItem('history');
     toast({
       title: "History Cleared",
       description: "Shopping list history has been cleared.",
@@ -1050,7 +1126,7 @@ export const GroceryApp: React.FC = () => {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
     }
   }, [toast, user]);
-
+  
   const completedCount = items.filter(item => item.completed).length;
   const progressPercent = items.length > 0 ? (completedCount / items.length) * 100 : 0;
 

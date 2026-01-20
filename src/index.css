@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Grocery Shopping App Design System - Fresh, Clean, Voice-Focused */
+/* Grocery Shopping App Design System - Fresh, Clean */
 
 @layer base {
   :root {
@@ -29,13 +29,7 @@
 
     --accent: 40 85% 60%;
     --accent-foreground: 0 0% 100%;
-
-    /* Voice states */
-    --voice-listening: 220 90% 60%;
-    --voice-active: 30 100% 50%;
-    --voice-success: 120 60% 45%;
-    --voice-error: 0 80% 55%;
-
+    
     --destructive: 0 80% 55%;
     --destructive-foreground: 0 0% 100%;
 
@@ -47,13 +41,11 @@
 
     /* Beautiful gradients for grocery theme */
     --gradient-fresh: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-voice: linear-gradient(135deg, hsl(var(--voice-listening)), hsl(var(--voice-active)));
-    --gradient-success: linear-gradient(135deg, hsl(var(--voice-success)), hsl(var(--primary-glow)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
     --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
 
     /* Elegant shadows with theme colors */
     --shadow-fresh: 0 10px 30px -10px hsl(var(--primary) / 0.2);
-    --shadow-voice: 0 8px 25px -8px hsl(var(--voice-listening) / 0.3);
     --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.4);
     --shadow-card: 0 4px 20px -4px hsl(var(--foreground) / 0.1);
 
@@ -132,12 +124,6 @@
   }
 }
 
-/* Custom animations for voice interactions */
-@keyframes pulse-voice {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.8; }
-}
-
 @keyframes bounce-in {
   0% { transform: scale(0.3); opacity: 0; }
   50% { transform: scale(1.05); }
@@ -163,10 +149,6 @@
 
 /* Utility classes */
 @layer utilities {
-  .animate-pulse-voice {
-    animation: pulse-voice 1.5s ease-in-out infinite;
-  }
-  
   .animate-bounce-in {
     animation: bounce-in 0.5s ease-out;
   }
@@ -187,20 +169,12 @@
     background: var(--gradient-fresh);
   }
   
-  .gradient-voice {
-    background: var(--gradient-voice);
-  }
-  
   .gradient-success {
     background: var(--gradient-success);
   }
   
   .shadow-fresh {
     box-shadow: var(--shadow-fresh);
-  }
-  
-  .shadow-voice {
-    box-shadow: var(--shadow-voice);
   }
   
   .shadow-glow {

@@ -1,23 +1,22 @@
-# 🛒 SousChefy - AI-Powered Voice-Controlled Grocery Shopping Assistant
+# 🛒 SousChefy - AI-Powered Grocery Shopping Assistant
 
-A revolutionary grocery shopping application that transforms how you create and manage shopping lists using voice commands. SousChefy leverages modern browser-native speech recognition and AI to provide a hands-free, intuitive shopping experience.
+A revolutionary grocery shopping application that transforms how you create and manage shopping lists. SousChefy leverages modern AI to provide an intuitive shopping experience.
 
 ![SousChefy Demo](https://via.placeholder.com/800x400/4F46E5/FFFFFF?text=SousChefy+Demo)
 
 ## ✨ Key Features
 
-### 🎤 **Voice-Controlled Shopping**
+### 🎤 **Easy Shopping List Management**
 
-- **Natural Language Input**: Speak naturally as you would to another person - "I need apples, bananas, milk, and bread"
-- **Smart Speech Recognition**: Browser-native Web Speech API with no API keys required
-- **Dual-Mode Operation**: Separate "Adding" mode for list creation and "Shopping" mode for hands-free item check-off
+- **Natural Language Input**: Add items naturally - "I need apples, bananas, milk, and bread"
+- **Dual-Mode Operation**: Separate "Editing" mode for list creation and "Shopping" mode for checking off items
 - **Quantity Parsing**: Handles both numeric quantities ("2 apples") and word quantities ("a dozen eggs", "three bananas")
-- **Multi-Item Recognition**: Intelligently parses multiple items from a single speech input using natural separators
+- **Multi-Item Recognition**: Intelligently parses multiple items from a single input using natural separators
 - **Grocery Database**: Comprehensive database of 200+ items across 14 categories with fuzzy matching
 
 ### 🤖 **ChefAI - Your Personal Shopping Assistant**
 
-- **Voice & Text Input**: Interact with ChefAI using voice commands or text input
+- **Text Input**: Interact with ChefAI using text input
 - **Smart List Management**: Tell ChefAI what you need and it adds items to your shopping list automatically
 - **AI-Powered Recipe Generation**: Generate recipes by dish name or get recommendations based on ingredients
 - **Recipe Saving**: Ask ChefAI to save any recipe it generates directly to your collection
@@ -66,22 +65,22 @@ A revolutionary grocery shopping application that transforms how you create and 
 1. **Clone the repository**
 
    ```bash
-   git clone <YOUR_GIT_URL>
-   cd Grocerli
+    git clone <YOUR_GIT_URL>
+    cd Grocerli
    ```
 
 2. **Install frontend dependencies**
 
    ```bash
-   npm install
+    npm install
    ```
 
 3. **Install backend dependencies**
 
    ```bash
-   cd backend
-   npm install
-   cd ..
+    cd backend
+    npm install
+    cd ..
    ```
 
 4. **Set up environment variables**
@@ -117,7 +116,7 @@ A revolutionary grocery shopping application that transforms how you create and 
    cd ..
    ```
 
-6. **Start the development servers**
+6. **Start development servers**
 
    Terminal 1 - Frontend:
 
@@ -137,20 +136,20 @@ A revolutionary grocery shopping application that transforms how you create and 
 
 ## 📋 Usage Guide
 
-### Getting Started with Voice
+### Getting Started
 
-1. **Add Items**: Click "Add Items" button and speak naturally
-2. **Specify Quantities**: Say "2 apples", "a dozen eggs", "three bananas"
+1. **Add Items**: Click "Add Items" button and type naturally
+2. **Specify Quantities**: Type "2 apples", "a dozen eggs", "three bananas"
 3. **Use Natural Separators**: "and", "also", "plus" work seamlessly
 4. **Stop Adding**: Click "Stop Adding" when finished
-5. **Start Shopping**: Click "Start Shopping" to begin hands-free shopping
-6. **Check Off Items**: Speak item names to check them off your list
-7. **Complete**: Enjoy the celebration when your list is done!
+5. **Start Shopping**: Click "Start Shopping" to begin shopping
+6. **Check Off Items**: Click item names to check them off your list
+7. **Complete**: Enjoy celebration when your list is done!
 
 ### Using ChefAI
 
 1. **Open Chat Panel**: Click the green chat bubble in the top-right corner
-2. **Voice or Text**: Use voice input or type your request
+2. **Text Input**: Type your request
 3. **Common Commands**:
    - "I need milk, eggs, and bread" - Adds items to your list
    - "What can I cook?" - Shows 5 recipe suggestions
@@ -160,7 +159,7 @@ A revolutionary grocery shopping application that transforms how you create and 
 
 ### Using Recipes
 
-1. **Navigate to Recipes Tab**: Click on "Recipes" in the navigation
+1. **Navigate to Recipes Tab**: Click on "Recipes" in navigation
 2. **Generate Recipe**: Enter a dish name or ingredients
 3. **View Details**: Click on a recipe to see full instructions
 4. **Save Recipe**: Save your favorite recipes for quick access
@@ -169,7 +168,7 @@ A revolutionary grocery shopping application that transforms how you create and 
 
 ### Managing History
 
-1. **Navigate to Favorites Tab**: Click on "Favorites" in the navigation
+1. **Navigate to Favorites Tab**: Click on "Favorites" in navigation
 2. **Load List**: Click on any saved list to reload it
 3. **Delete List**: Remove individual lists you no longer need
 4. **View Recipes**: Access your saved recipes
@@ -182,7 +181,7 @@ A revolutionary grocery shopping application that transforms how you create and 
 
 ### Tips for Best Results
 
-- **Speak clearly** and naturally
+- **Type clearly** and naturally
 - **Use compound words**: "peanut butter", "orange juice"
 - **Specify quantities**: "2 apples", "a dozen eggs"
 - **Use natural separators**: "and", "also", "plus"
@@ -212,7 +211,6 @@ A revolutionary grocery shopping application that transforms how you create and 
 
 ### Core Technologies
 
-- **Web Speech API** - Browser-native speech recognition
 - **Web Audio API** - Celebration sound effects
 - **OpenAI API** - GPT-4o-mini for ChefAI
 - **Vite PWA Plugin** - Progressive Web App support
@@ -224,20 +222,18 @@ A revolutionary grocery shopping application that transforms how you create and 
 - **Mobile-First** - Responsive design with mobile optimizations
 - **Efficient Rendering** - Optimized component updates
 - **Clean State Management** - Proper cleanup prevents memory leaks
-- **Aggressive Microphone Cleanup** - Multiple stop mechanisms for reliable mobile operation
 - **Service Worker Caching** - Offline support and fast loading
 
 ## 🎨 Features in Detail
 
-### Voice Recognition System
+### Natural Language Processing
 
-- **Natural Language Processing**: Supports conversational patterns with filler words
+- **Conversational Patterns**: Supports natural input with filler words
 - **Smart Separators**: Recognizes "and", "also", "plus", "then", commas, and pauses
 - **Quantity Extraction**: Parses numeric and word-based quantities with optional units
 - **Compound Item Recognition**: Handles multi-word items like "peanut butter", "orange juice"
 - **Grocery Database**: Comprehensive database of 200+ items across 14 categories
-- **Fuzzy Matching**: Finds best matches for spoken items to ensure consistency
-- **Mobile Optimization**: Special handling for mobile browser quirks
+- **Fuzzy Matching**: Finds best matches for items to ensure consistency
 
 ### ChefAI Capabilities
 
@@ -247,8 +243,8 @@ A revolutionary grocery shopping application that transforms how you create and 
 - **History Access**: Reference past shopping lists for personalized recommendations
 - **Tab Routing**: Automatically switches to appropriate tabs based on request type
 - **Streaming Responses**: Real-time feedback as ChefAI processes requests
-- **Voice Input**: Web Speech API integration for voice commands
-- **Auto-Send on Silence**: Automatically sends after 3 seconds of no speech
+- **Text Input**: Clean text input interface
+- **Auto-Send on Silence**: Automatically sends after 3 seconds of no typing
 
 ### Shopping List Features
 
@@ -385,15 +381,15 @@ Having issues? Check out our [Troubleshooting Guide](TROUBLESHOOTING.md) or crea
 ### Supported Browsers
 
 - **Chrome/Edge** (full support) - Recommended for best experience
-- **Safari** (partial support) - Some features may have different behavior
-- **Firefox** (limited support) - Speech recognition not fully supported
+- **Safari** (full support)
+- **Firefox** (full support)
 
 ### Mobile Considerations
 
-- **iOS Safari**: Different speech recognition behavior, optimized for mobile
+- **iOS Safari**: Full support with responsive design
 - **Android Chrome**: Generally good support
-- **Requires HTTPS**: Speech API requires secure context
+- **Requires HTTPS**: Secure context recommended
 
 ---
 
-**Made with ❤️ for smarter, voice-controlled grocery shopping**
+**Made with ❤️ for smarter grocery shopping**
